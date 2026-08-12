@@ -7,8 +7,11 @@ const express = require('express');
 const { Server } = require('socket.io');
 const { RoomManager } = require('./rooms');
 
+// Bajo Passenger (cPanel/Plesk) el "puerto" que llega en PORT puede ser la ruta
+// de un socket Unix, no un numero. Por eso HOST solo se aplica si lo pides
+// explicitamente: si no, se deja que Node/Passenger decidan donde escuchar.
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || null;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 const app = express();
@@ -40,9 +43,9 @@ const io = new Server(server, {
 manager = new RoomManager(io);
 io.on('connection', (socket) => manager.attach(socket));
 
-server.listen(PORT, HOST, () => {
-  console.log(`[wecoocked] escuchando en ${HOST}:${PORT}`);
-});
+const onReady = () => console.log(`[wecoocked] escuchando en ${HOST ? HOST + ':' : ''}${PORT}`);
+if (HOST) server.listen(PORT, HOST, onReady);
+else server.listen(PORT, onReady);
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => { console.log(`[wecoocked] ${sig}, cerrando`); server.close(() => process.exit(0)); });
