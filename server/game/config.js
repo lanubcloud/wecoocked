@@ -10,10 +10,10 @@ const COUNTDOWN_SECONDS = 4;
 
 const CHEF = {
   radius: 0.34,
-  speed: 4.6,          // casillas / segundo
-  dashSpeed: 11.5,
-  dashTime: 0.15,
-  dashCooldown: 1.0,
+  speed: 6.2,          // casillas / segundo
+  dashSpeed: 14,
+  dashTime: 0.16,
+  dashCooldown: 0.85,
   push: 3.2,           // separacion suave entre cocineros
 };
 
@@ -37,8 +37,11 @@ const THROW = {
 };
 
 const PREP = {
-  chopTime: 2.2,       // segundos manteniendo el boton B
-  washTime: 1.6,
+  // Cortar y fregar van a TOQUES, no manteniendo pulsado: se siente mas
+  // fisico y da ritmo a la partida. Cada toque avanza una fraccion.
+  chopTaps: 5,         // toques para cortar un ingrediente
+  washTaps: 4,         // toques para fregar un plato
+  tapCooldown: 0.09,   // minimo entre toques utiles (evita el autoclicker)
   cookTime: 8.0,
   burnTime: 15.0,      // tiempo total antes de quemarse
   dirtyReturnDelay: 7, // segundos hasta que vuelve el plato sucio

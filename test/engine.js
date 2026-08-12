@@ -70,9 +70,8 @@ ok(ch.holding && ch.holding.t === 'shrimp', 'coge gamba');
 const board = find('board');
 faceTile(board.x, board.y); eng.requestAct('p1');
 ok(!ch.holding, 'pone la gamba en la tabla');
-ch.hold = true;
-for (let i = 0; i < Math.ceil(PREP.chopTime / DT) + 2; i++) eng.step();
-ch.hold = false;
+// cortar va a toques: un requestChop por pulsacion, con su cooldown entre medias
+for (let i = 0; i < PREP.chopTaps; i++) { eng.requestChop('p1'); for (let j = 0; j < 3; j++) eng.step(); }
 ok(eng.stateAt(board.x, board.y).item.s === 'chopped', 'la gamba queda cortada');
 
 // plato + emplatado
@@ -102,9 +101,7 @@ ok(ch.holding && ch.holding.k === 'p' && ch.holding.d === 1, 'coge el plato suci
 const sink = find('sink');
 faceTile(sink.x, sink.y); eng.requestAct('p1');
 ok(!ch.holding && eng.stateAt(sink.x, sink.y).dirty === 1, 'deja el plato en el fregadero');
-ch.hold = true;
-for (let i = 0; i < Math.ceil(PREP.washTime / DT) + 2; i++) eng.step();
-ch.hold = false;
+for (let i = 0; i < PREP.washTaps; i++) { eng.requestChop('p1'); for (let j = 0; j < 3; j++) eng.step(); }
 ok(eng.stateAt(sink.x, sink.y).clean === 1, 'friega el plato');
 faceTile(sink.x, sink.y); eng.requestAct('p1');
 ok(ch.holding && ch.holding.k === 'p' && !ch.holding.d, 'recoge el plato limpio');
@@ -120,6 +117,22 @@ ok(JSON.stringify(e1.orders.map((o) => o.recipe.id)) === JSON.stringify(e2.order
 const snap = eng.snapshot();
 const bytes = Buffer.byteLength(JSON.stringify(snap));
 ok(bytes < 4000, `snapshot compacto (${bytes} bytes -> ~${Math.round(bytes * 20 / 1024)} KB/s)`);
+
+
+// --- 9. mantener pulsado ya NO corta: hace falta pulsar repetidamente
+{
+  const e9 = new Engine(map, 55, [{ id: 'x', name: 'X' }]);
+  const b = e9.map.cells.find((c) => c.type === 'board');
+  const c2 = e9.chefs.get('x');
+  const opts = [[b.x - 1, b.y, 1, 0], [b.x + 1, b.y, -1, 0], [b.x, b.y - 1, 0, 1], [b.x, b.y + 1, 0, -1]];
+  for (const [x, y, fx, fy] of opts) { if (floor(x, y)) { c2.x = x + 0.5; c2.y = y + 0.5; c2.fx = fx; c2.fy = fy; break; } }
+  e9.stateAt(b.x, b.y).item = { k: 'i', t: 'cucumber', s: 'raw' };
+  c2.hold = true;
+  for (let i = 0; i < 200; i++) e9.step();          // 10 segundos manteniendo
+  ok(e9.stateAt(b.x, b.y).item.s === 'raw', 'mantener pulsado no corta nada');
+  for (let i = 0; i < PREP.chopTaps; i++) { e9.requestChop('x'); for (let j = 0; j < 3; j++) e9.step(); }
+  ok(e9.stateAt(b.x, b.y).item.s === 'chopped', 'pulsar ' + PREP.chopTaps + ' veces si corta');
+}
 
 console.log(fails ? `\n${fails} FALLOS` : '\nTodo OK');
 process.exit(fails ? 1 : 0);

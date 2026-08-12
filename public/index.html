@@ -10,7 +10,7 @@
 <title>Wecoocked - Sushi Rush</title>
 <link rel="manifest" href="manifest.webmanifest">
 <!-- Sube ?v= al desplegar para que los moviles no se queden con la version cacheada -->
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 
@@ -131,9 +131,15 @@
       <div id="stick-aim" class="stick aim"><div class="knob"></div></div>
     </div>
     <div class="buttons">
-      <button id="btn-dash" class="gbtn dash" aria-label="Esprint">DASH</button>
-      <button id="btn-b" class="gbtn b" aria-label="Cortar o lavar">B</button>
-      <button id="btn-a" class="gbtn a" aria-label="Coger o soltar">A</button>
+      <button id="btn-dash" class="gbtn dash" aria-label="Correr">
+        <span class="ic">&#187;</span><span class="lb">CORRER</span>
+      </button>
+      <button id="btn-b" class="gbtn chop" aria-label="Cortar o fregar, pulsa varias veces">
+        <span class="ic">&#9986;</span><span class="lb">CORTAR</span>
+      </button>
+      <button id="btn-a" class="gbtn grab" aria-label="Coger, soltar o servir">
+        <span class="ic">&#9995;</span><span class="lb">COGER</span>
+      </button>
     </div>
     <button id="btn-ptt" class="micbtn" aria-label="Micro">MIC</button>
     <button id="btn-menu" class="menubtn" aria-label="Menu">II</button>
@@ -168,11 +174,11 @@
 <div id="netstat" class="netstat"></div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="js/net.js?v=8"></script>
-<script src="js/input.js?v=8"></script>
-<script src="js/voice.js?v=8"></script>
-<script src="js/render.js?v=8"></script>
-<script src="js/ui.js?v=8"></script>
-<script src="js/main.js?v=8"></script>
+<script src="js/net.js?v=9"></script>
+<script src="js/input.js?v=9"></script>
+<script src="js/voice.js?v=9"></script>
+<script src="js/render.js?v=9"></script>
+<script src="js/ui.js?v=9"></script>
+<script src="js/main.js?v=9"></script>
 </body>
 </html>

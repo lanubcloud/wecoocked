@@ -2,17 +2,27 @@
 (function (global) {
   'use strict';
 
-  const MAX_R = 52; // radio maximo del knob en px
+  const MAX_R = 56;       // radio maximo del knob en px
+  const DEAD = 0.08;      // zona muerta pequena: responde en cuanto mueves el pulgar
 
+  /**
+   * Joystick virtual.
+   *  - fixed:true  -> base anclada en su sitio (el de movimiento). Se puede
+   *    tocar en cualquier parte de la zona y el knob se mide desde el centro
+   *    de la base, asi no hay que acertar en el circulo.
+   *  - fixed:false -> base flotante, aparece donde pongas el dedo (apuntar).
+   */
   class Stick {
-    constructor(zoneEl, stickEl) {
+    constructor(zoneEl, stickEl, fixed) {
       this.zone = zoneEl;
       this.el = stickEl;
       this.knob = stickEl.querySelector('.knob');
+      this.fixed = !!fixed;
       this.pointer = null;
       this.ox = 0; this.oy = 0;
       this.x = 0; this.y = 0;   // -1..1
       this.enabled = true;
+      if (this.fixed) this.el.classList.add('show', 'fixed');
 
       zoneEl.addEventListener('pointerdown', (e) => this._down(e), { passive: false });
       window.addEventListener('pointermove', (e) => this._move(e), { passive: false });
@@ -20,26 +30,40 @@
       window.addEventListener('pointercancel', (e) => this._up(e));
     }
 
+    _center() {
+      const b = this.el.getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    }
+
     _down(e) {
       if (!this.enabled || this.pointer !== null) return;
       if (e.target.closest('.gbtn,.micbtn,.menubtn')) return;
       e.preventDefault();
       this.pointer = e.pointerId;
-      const r = this.zone.getBoundingClientRect();
-      this.ox = e.clientX - r.left;
-      this.oy = e.clientY - r.top;
-      this.el.style.left = this.ox + 'px';
-      this.el.style.top = this.oy + 'px';
-      this.el.classList.add('show');
-      this._apply(0, 0);
+      if (this.fixed) {
+        const c = this._center();
+        this.ox = c.x; this.oy = c.y;
+        this.el.classList.add('active');
+        this._track(e);                     // reacciona ya al primer toque
+      } else {
+        const r = this.zone.getBoundingClientRect();
+        this.ox = e.clientX; this.oy = e.clientY;
+        this.el.style.left = (e.clientX - r.left) + 'px';
+        this.el.style.top = (e.clientY - r.top) + 'px';
+        this.el.classList.add('show');
+        this._apply(0, 0);
+      }
     }
 
     _move(e) {
       if (e.pointerId !== this.pointer) return;
       e.preventDefault();
-      const r = this.zone.getBoundingClientRect();
-      let dx = e.clientX - r.left - this.ox;
-      let dy = e.clientY - r.top - this.oy;
+      this._track(e);
+    }
+
+    _track(e) {
+      let dx = e.clientX - this.ox;
+      let dy = e.clientY - this.oy;
       const d = Math.hypot(dx, dy);
       if (d > MAX_R) { dx = (dx / d) * MAX_R; dy = (dy / d) * MAX_R; }
       this._apply(dx, dy);
@@ -48,26 +72,32 @@
     _up(e) {
       if (e.pointerId !== this.pointer) return;
       this.pointer = null;
-      this.el.classList.remove('show');
+      if (this.fixed) this.el.classList.remove('active');
+      else this.el.classList.remove('show');
       const lx = this.x, ly = this.y;
       this._apply(0, 0);
-      // el gesto de soltar es lo que dispara el lanzamiento
       if (this.onRelease) this.onRelease(lx, ly, Math.hypot(lx, ly));
     }
 
     _apply(dx, dy) {
       this.knob.style.transform = `translate(${dx}px,${dy}px)`;
-      // zona muerta del 18%
       const d = Math.hypot(dx, dy) / MAX_R;
-      if (d < 0.18) { this.x = 0; this.y = 0; return; }
-      const k = Math.min(1, (d - 0.18) / 0.82) / (d || 1);
+      if (d < DEAD) { this.x = 0; this.y = 0; return; }
+      // Fuera de la zona muerta se va directo al maximo: en un juego de cocina
+      // interesa correr, no dosificar la velocidad con precision analogica.
+      const k = Math.min(1, (d - DEAD) / 0.45) / (d || 1);
       this.x = (dx / MAX_R) * k;
       this.y = (dy / MAX_R) * k;
     }
 
     setEnabled(on) {
       this.enabled = on;
-      if (!on) { this.pointer = null; this.el.classList.remove('show'); this.x = this.y = 0; }
+      if (!on) {
+        this.pointer = null;
+        if (!this.fixed) this.el.classList.remove('show');
+        this.x = this.y = 0;
+        this.knob.style.transform = 'translate(0,0)';
+      }
     }
   }
 
@@ -78,13 +108,14 @@
     onAct: null,
     onDash: null,
     onThrow: null,
+    onChop: null,
     haptic: true,
     throwEnabled: true,
     throwMinMag: 0.6,   // por debajo de esto el joystick derecho solo apunta
 
     init() {
-      this.move = new Stick(document.getElementById('zone-move'), document.getElementById('stick-move'));
-      this.aim = new Stick(document.getElementById('zone-aim'), document.getElementById('stick-aim'));
+      this.move = new Stick(document.getElementById('zone-move'), document.getElementById('stick-move'), true);
+      this.aim = new Stick(document.getElementById('zone-aim'), document.getElementById('stick-aim'), false);
 
       this.aim.onRelease = (x, y, mag) => {
         if (!this.throwEnabled || mag < this.throwMinMag) return;
@@ -98,7 +129,8 @@
 
       this._tap(a, () => { this.buzz(12); if (this.onAct) this.onAct(); });
       this._tap(dash, () => { this.buzz(18); if (this.onDash) this.onDash(); });
-      this._holdBtn(b);
+      // Cortar y fregar van a toques: cada pulsacion es un tajo.
+      this._tap(b, () => { this.buzz(9); if (this.onChop) this.onChop(); });
 
       // teclado (util para probar en escritorio)
       const keys = {};
@@ -111,15 +143,11 @@
         keys[e.key] = true;
         if (e.key === ' ') { e.preventDefault(); if (this.onAct) this.onAct(); }
         if (e.key === 'Shift') { if (this.onDash) this.onDash(); }
-        if (e.key.toLowerCase() === 'e') this.hold = true;
+        if (e.key.toLowerCase() === 'e' && this.onChop) this.onChop();
         if (e.key.toLowerCase() === 'q' && this.onThrow) this.onThrow(this.move.x, this.move.y);
         sync();
       });
-      window.addEventListener('keyup', (e) => {
-        keys[e.key] = false;
-        if (e.key.toLowerCase() === 'e') this.hold = false;
-        sync();
-      });
+      window.addEventListener('keyup', (e) => { keys[e.key] = false; sync(); });
       return this;
     },
 
@@ -129,15 +157,6 @@
         el.classList.add('down'); fn();
       }, { passive: false });
       const off = () => el.classList.remove('down');
-      el.addEventListener('pointerup', off);
-      el.addEventListener('pointercancel', off);
-      el.addEventListener('pointerleave', off);
-    },
-
-    _holdBtn(el) {
-      const on = (e) => { e.preventDefault(); e.stopPropagation(); this.hold = true; el.classList.add('down'); this.buzz(8); };
-      const off = () => { this.hold = false; el.classList.remove('down'); };
-      el.addEventListener('pointerdown', on, { passive: false });
       el.addEventListener('pointerup', off);
       el.addEventListener('pointercancel', off);
       el.addEventListener('pointerleave', off);
@@ -159,8 +178,13 @@
 
     reset() {
       this.hold = false;
-      if (this.move) { this.move.x = this.move.y = 0; this.move.pointer = null; this.move.el.classList.remove('show'); }
-      if (this.aim) { this.aim.x = this.aim.y = 0; this.aim.pointer = null; this.aim.el.classList.remove('show'); }
+      for (const s of [this.move, this.aim]) {
+        if (!s) continue;
+        s.x = s.y = 0; s.pointer = null;
+        s.knob.style.transform = 'translate(0,0)';
+        s.el.classList.remove('active');
+        if (!s.fixed) s.el.classList.remove('show');
+      }
     },
   };
 

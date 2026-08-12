@@ -2,8 +2,10 @@
 (function () {
   'use strict';
 
-  const CHEF_SPEED = 4.6;
-  const CHEF_R = 0.34;
+  // Valores por defecto; el servidor manda los suyos en match:start para que
+  // la prediccion local use exactamente los mismos numeros que la simulacion.
+  let CHEF_SPEED = 6.2;
+  let CHEF_R = 0.34;
   const INTERP_MIN = 55;    // margen minimo de interpolacion
   const INTERP_MAX = 160;
 
@@ -134,6 +136,7 @@
   function bindGame() {
     Input.onAct = () => Net.act();
     Input.onDash = () => Net.dash();
+    Input.onChop = () => Net.chop();
     Input.onThrow = (dx, dy) => {
       // solo tiene sentido con un ingrediente en la mano (el servidor lo revalida)
       if (!G.holding || G.holding.k !== 'i') return;
@@ -202,6 +205,7 @@
 
     Net.on('match:start', async (meta) => {
       G.meta = meta;
+      if (meta.chef) { CHEF_SPEED = meta.chef.speed; CHEF_R = meta.chef.radius; }
       G.buffer.length = 0;
       G.latest = null;
       G.me = null;
@@ -324,6 +328,9 @@
       view = { chefs, tiles: G.latest.tiles, orders: G.latest.orders, fly: G.latest.fly, gnd: G.latest.gnd };
       UI.renderHud(G.latest, G.myTeam);
     }
+    // la camara persigue tu cocinero (usa la posicion predicha, sin retardo)
+    const yo = view && view.chefs.find((c) => c.id === Net.id);
+    Render.follow(yo || (G.me ? { x: G.me.x, y: G.me.y } : null), dt);
     Render.draw(view, dt);
   }
 

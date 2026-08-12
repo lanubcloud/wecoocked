@@ -121,26 +121,50 @@ input[type=text]:focus{border-color:var(--accent)}
 
 /* --------------------------------------------------- controles tactiles */
 .controls{position:absolute;inset:0;pointer-events:none}
-.zone{position:absolute;bottom:0;top:26%;pointer-events:auto}
-.zone-left{left:0;width:45%}
-.zone-right{right:0;width:45%}
-.stick{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;
-  border:2px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);
-  display:none;place-items:center;backdrop-filter:blur(2px)}
+.zone{position:absolute;bottom:0;top:24%;pointer-events:auto}
+.zone-left{left:0;width:48%}
+.zone-right{right:0;width:48%}
+.stick{position:absolute;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;
+  display:none;place-items:center;
+  border:2px solid rgba(255,255,255,.20);
+  background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.13),rgba(0,0,0,.30));
+  box-shadow:inset 0 2px 10px rgba(0,0,0,.45),0 3px 14px rgba(0,0,0,.35)}
 .stick.show{display:grid}
-.stick .knob{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.55);
-  box-shadow:0 3px 10px rgba(0,0,0,.5);transform:translate(0,0)}
-.stick.aim{border-style:dashed;border-color:rgba(255,183,3,.45)}
-.stick.aim .knob{background:rgba(255,183,3,.6)}
+/* el de movimiento vive anclado abajo a la izquierda, siempre visible */
+.stick.fixed{left:calc(88px + var(--safe-l));top:auto;bottom:16px;margin:0 0 -66px 0;
+  transform:translateX(-50%);opacity:.62;transition:opacity .15s}
+.stick.fixed.active{opacity:1}
+.stick .knob{width:62px;height:62px;border-radius:50%;
+  background:radial-gradient(circle at 42% 34%,#fdfdfd,#c8ccd6);
+  box-shadow:0 4px 12px rgba(0,0,0,.55),inset 0 -3px 6px rgba(0,0,0,.18);
+  transform:translate(0,0)}
+.stick.aim{border-style:dashed;border-color:rgba(255,183,3,.5)}
+.stick.aim .knob{background:radial-gradient(circle at 42% 34%,#ffe6a6,#e8a417)}
 
-.buttons{position:absolute;right:calc(12px + var(--safe-r));bottom:calc(14px + var(--safe-b));
-  width:172px;height:150px;pointer-events:none}
-.gbtn{position:absolute;pointer-events:auto;border:none;border-radius:50%;font-weight:900;color:#12131a;
-  box-shadow:0 4px 12px rgba(0,0,0,.5);transition:transform .05s,filter .1s}
-.gbtn:active,.gbtn.down{transform:scale(.9);filter:brightness(1.2)}
-.gbtn.a{right:0;bottom:14px;width:76px;height:76px;font-size:1.5rem;background:linear-gradient(180deg,#ffd25e,#f0a500)}
-.gbtn.b{right:70px;bottom:66px;width:60px;height:60px;font-size:1.15rem;background:linear-gradient(180deg,#8fe3ff,#3aa7d9)}
-.gbtn.dash{right:6px;bottom:96px;width:52px;height:52px;font-size:.62rem;background:linear-gradient(180deg,#c9b8ff,#7c5cff);color:#150f2b}
+/* ------- botones de accion: forma, icono y etiqueta legible ------------- */
+.buttons{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(16px + var(--safe-b));
+  width:184px;height:164px;pointer-events:none}
+.gbtn{position:absolute;pointer-events:auto;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  border:2px solid rgba(255,255,255,.28);
+  box-shadow:0 5px 0 rgba(0,0,0,.35),0 8px 18px rgba(0,0,0,.45);
+  transition:transform .06s,box-shadow .06s,filter .1s}
+.gbtn .ic{line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.gbtn .lb{font-size:.52rem;font-weight:800;letter-spacing:.06em;opacity:.92}
+.gbtn:active,.gbtn.down{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.35),0 3px 8px rgba(0,0,0,.4);filter:brightness(1.12)}
+/* Coger: la accion principal, la mas grande y a mano del pulgar */
+.gbtn.grab{right:0;bottom:10px;width:86px;height:86px;color:#2a1a00;
+  background:radial-gradient(circle at 40% 32%,#ffe08a,#f0a21c 62%,#c97c05)}
+.gbtn.grab .ic{font-size:1.6rem}
+/* Cortar: se pulsa repetidamente */
+.gbtn.chop{right:78px;bottom:74px;width:68px;height:68px;color:#04222c;
+  background:radial-gradient(circle at 40% 32%,#b8f0ff,#3fb6dd 62%,#1d84a8)}
+.gbtn.chop .ic{font-size:1.25rem}
+/* Correr */
+.gbtn.dash{right:4px;bottom:106px;width:58px;height:58px;color:#f4f2ff;
+  background:radial-gradient(circle at 40% 32%,#a99bf0,#6b4fd8 62%,#4a32ad)}
+.gbtn.dash .ic{font-size:1.15rem;font-weight:900}
+.gbtn.dash .lb{font-size:.46rem}
 .micbtn{position:absolute;pointer-events:auto;left:calc(10px + var(--safe-l));top:calc(50% - 26px);
   width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.2);
   background:rgba(24,26,36,.8);color:#9aa0b5;font-size:.62rem;font-weight:800}

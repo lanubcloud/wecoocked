@@ -71,6 +71,7 @@ class Engine {
         mx: 0, my: 0, hold: false,
         holding: null,
         dashT: 0, dashCd: 0,
+        tapCd: 0, chopAnim: 0,
         speedMul: 1,
       });
       if (p.bot) this.bots.push(new Bot(this, p.id, p.level));
@@ -206,6 +207,48 @@ class Engine {
     if (!ch || ch.dashCd > 0) return;
     ch.dashCd = CHEF.dashCooldown;
     ch.dashT = CHEF.dashTime;
+  }
+
+  /**
+   * Boton de cortar/fregar. Cada pulsacion avanza un paso; no vale mantener.
+   * El cooldown corta los autoclickers sin estorbar a quien pulsa rapido.
+   */
+  requestChop(id) {
+    const ch = this.chefs.get(id);
+    if (!ch || ch.tapCd > 0) return;
+    const f = this.frontOf(ch);
+    const cell = this.cellAt(f.x, f.y);
+    if (!cell) return;
+    const st = this.tiles[this.idx(f.x, f.y)];
+
+    if (cell.type === 'board' && st.item && st.item.k === 'i' &&
+        INGREDIENTS[st.item.t].prep === 'chop' && st.item.s === 'raw') {
+      ch.tapCd = PREP.tapCooldown;
+      ch.chopAnim = 0.18;                       // el cliente lo usa para el cuchillo
+      st.prog = Math.min(1, st.prog + 1 / PREP.chopTaps);
+      this.fx('tap', f.x + 0.5, f.y + 0.5, '');
+      if (st.prog >= 1) {
+        st.item.s = 'chopped';
+        st.prog = 0;
+        this.fx('chop', f.x + 0.5, f.y + 0.5, '');
+      }
+      return;
+    }
+
+    if (cell.type === 'sink' && st.dirty > 0) {
+      ch.tapCd = PREP.tapCooldown;
+      ch.chopAnim = 0.18;
+      st.prog = Math.min(1, st.prog + 1 / PREP.washTaps);
+      this.fx('tap', f.x + 0.5, f.y + 0.5, '');
+      if (st.prog >= 1) {
+        st.dirty--; st.clean++; st.prog = 0;
+        this.fx('wash', f.x + 0.5, f.y + 0.5, '');
+      }
+      return;
+    }
+
+    // Nada que cortar delante: sirve de pista visual
+    if (cell.interactive) this.fx('hint', f.x + 0.5, f.y + 0.5, '');
   }
 
   requestAct(id) {
@@ -538,29 +581,10 @@ class Engine {
       }
     }
 
-    // accion mantenida (cortar / fregar)
+    // temporizadores de los toques de cortar/fregar
     for (const ch of list) {
-      if (!ch.hold) continue;
-      const f = this.frontOf(ch);
-      const cell = this.cellAt(f.x, f.y);
-      if (!cell || !cell.interactive) continue;
-      const st = this.tiles[this.idx(f.x, f.y)];
-
-      if (cell.type === 'board' && st.item && st.item.k === 'i' &&
-          INGREDIENTS[st.item.t].prep === 'chop' && st.item.s === 'raw') {
-        st.prog += DT / PREP.chopTime;
-        if (st.prog >= 1) {
-          st.item.s = 'chopped';
-          st.prog = 0;
-          this.fx('chop', f.x + 0.5, f.y + 0.5, '');
-        }
-      } else if (cell.type === 'sink' && st.dirty > 0) {
-        st.prog += DT / PREP.washTime;
-        if (st.prog >= 1) {
-          st.dirty--; st.clean++; st.prog = 0;
-          this.fx('wash', f.x + 0.5, f.y + 0.5, '');
-        }
-      }
+      if (ch.tapCd > 0) ch.tapCd -= DT;
+      if (ch.chopAnim > 0) ch.chopAnim -= DT;
     }
   }
 
@@ -632,6 +656,8 @@ class Engine {
         id: ch.id, n: ch.name, s: ch.slot, b: ch.bot ? 1 : 0,
         x: r2(ch.x), y: r2(ch.y), fx: r2(ch.fx), fy: r2(ch.fy),
         h: ch.holding, d: ch.dashT > 0 ? 1 : 0,
+        c: ch.chopAnim > 0 ? 1 : 0,          // esta dando un tajo ahora mismo
+        v: r2(Math.hypot(ch.vx, ch.vy)),     // velocidad, para animar el paso
       });
     }
 

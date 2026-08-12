@@ -78,6 +78,7 @@
     },
     act() { if (this.socket) this.socket.emit('act'); },
     dash() { if (this.socket) this.socket.emit('dash'); },
+    chop() { if (this.socket) this.socket.emit('chop'); },
     throwItem(dx, dy) { if (this.socket) this.socket.emit('throw', { dx, dy }); },
 
     voiceEnable(on) { if (this.socket) this.socket.emit('voice:enable', { on }); },

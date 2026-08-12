@@ -1,6 +1,6 @@
 'use strict';
 
-const { TICK_HZ, DT, MATCH_SECONDS, COUNTDOWN_SECONDS } = require('./game/config');
+const { TICK_HZ, DT, MATCH_SECONDS, COUNTDOWN_SECONDS, CHEF } = require('./game/config');
 const { buildMap } = require('./game/map');
 const { INGREDIENTS, RECIPES } = require('./game/recipes');
 const { Engine } = require('./game/engine');
@@ -226,6 +226,8 @@ class Room {
       duration: MATCH_SECONDS,
       countdown: COUNTDOWN_SECONDS,
       tick: TICK_HZ,
+      // el cliente predice tu movimiento: necesita los mismos numeros que el servidor
+      chef: { speed: CHEF.speed, radius: CHEF.radius },
       roster: this.publicState().players,
     });
     this.pushState();
@@ -257,6 +259,12 @@ class Room {
     if (!p || this.phase !== 'playing') return;
     const e = this.engines[p.team];
     if (e) e.requestDash(id);
+  }
+  chop(id) {
+    const p = this.players.get(id);
+    if (!p || this.phase !== 'playing') return;
+    const e = this.engines[p.team];
+    if (e) e.requestChop(id);
   }
   throwItem(id, d) {
     const p = this.players.get(id);
@@ -315,7 +323,9 @@ class Room {
     }
     this.lastResults = results;
     this.io.to(`r:${this.code}`).emit('match:end', results);
-    for (const p of this.players.values()) p.ready = false;
+    // Los bots siguen listos: no tienen boton que pulsar y, si se les quitaba
+    // la marca, la sala quedaba bloqueada sin poder empezar otra partida.
+    for (const p of this.players.values()) if (!p.bot) p.ready = false;
     setTimeout(() => {
       if (this.phase === 'results') { this.phase = 'lobby'; this.engines = {}; this.pushState(); }
     }, 1500);
@@ -378,6 +388,7 @@ class RoomManager {
     socket.on('input', (d) => { const r = this.roomOf(socket); if (r) r.input(socket.id, d || {}); });
     socket.on('act', () => { const r = this.roomOf(socket); if (r) r.act(socket.id); });
     socket.on('dash', () => { const r = this.roomOf(socket); if (r) r.dash(socket.id); });
+    socket.on('chop', () => { const r = this.roomOf(socket); if (r) r.chop(socket.id); });
     socket.on('throw', (d) => { const r = this.roomOf(socket); if (r) r.throwItem(socket.id, d); });
 
     // ---- senalizacion WebRTC (malla por equipo) ----

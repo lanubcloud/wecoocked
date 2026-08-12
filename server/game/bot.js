@@ -89,9 +89,8 @@ class Bot {
         const st = this.eng.stateAt(step.tile.x, step.tile.y);
         const it = st && st.item;
         if (it && it.k === 'i' && it.s === 'raw' && INGREDIENTS[it.t].prep === 'chop') {
-          ch.hold = true;                       // mantener B
+          this.eng.requestChop(this.id);        // un toque por tick, como un humano
         } else {
-          ch.hold = false;
           this.eng.requestAct(this.id);         // ya esta cortado: recogerlo
           this._nextStep();
         }
@@ -114,13 +113,11 @@ class Bot {
         const st = this.eng.stateAt(step.tile.x, step.tile.y);
         if (!st) { this._abort(); break; }
         if (st.clean > 0) {
-          ch.hold = false;
           this.eng.requestAct(this.id);          // coger plato limpio
           this._nextStep();
         } else if (st.dirty > 0) {
-          ch.hold = true;
+          this.eng.requestChop(this.id);         // fregar tambien va a toques
         } else {
-          ch.hold = false;
           this._abort();
         }
         break;
