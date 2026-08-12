@@ -1,0 +1,12 @@
+# Todo el texto se guarda con saltos LF. Sin esto, los scripts .sh editados en
+# Windows llegan al VPS con CRLF y bash falla con "\r: command not found".
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.conf text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+*.js   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md    text eol=lf
