@@ -211,7 +211,7 @@ class Room {
     this.engines = {};
     for (const t of TEAMS) {
       const list = this.teamPlayers(t);
-      if (list.length) this.engines[t] = new Engine(MAP, seed, list);
+      if (list.length) this.engines[t] = new Engine(MAP, seed, list, this.teamSize);
     }
 
     this.phase = 'countdown';

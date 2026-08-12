@@ -40,13 +40,18 @@ Ejemplos que se montan en dos toques:
 
 ### Niveles
 
-| Nivel | Velocidad | Reflejos | Rinde (bot solo, 3 min) |
+| Nivel | Velocidad | Reflejos | Rinde (bot solo, media de 10 partidas) |
 |---|---|---|---|
-| Fácil | 70 % | lentos, se despista | ~2 platos |
-| Normal | 88 % | normales | ~3 platos |
-| Difícil | 100 % | inmediatos | ~4 platos |
+| Fácil | 70 % | lentos, se despista | 1,6 platos |
+| Normal | 88 % | normales | 2,8 platos |
+| Difícil | 100 % | inmediatos | 3,2 platos |
 
-Dos bots difíciles coordinados sirven unos 6 platos por partida: es el listón a batir.
+En equipo, los bots difíciles rinden 3,3 → 5,7 → 6,7 platos según sean 1, 2 o 3.
+Ese ~6,7 es el listón a batir.
+
+Los bots llevan algo de aleatoriedad en los reflejos y en qué pedido eligen. Sin ella,
+dos equipos del mismo nivel harían exactamente lo mismo y siempre empatarían; con ella,
+las 8 partidas de prueba entre bots idénticos terminaron con ganador.
 
 Los bots juegan **con las mismas reglas que tú**: mueven el mismo joystick virtual y
 pulsan los mismos botones a través de la misma API del servidor. No hacen trampa ni
@@ -139,6 +144,10 @@ Los pasos 1‑3 se pueden repartir entre el equipo y pasarse los ingredientes la
 
 **Puntuación:** valor de la receta + propina por rapidez (hasta 12) + bonus por racha
 (hasta 20). Pedido caducado −8, plato erróneo −5 y la racha se rompe.
+
+**Carga de pedidos:** se ajusta al tamaño de equipo (3 pedidos a la vez para 1 cocinero,
+4 para 2, 5 para 3) para que el tercer jugador tenga trabajo real. Las dos cocinas
+reciben siempre la misma carga, así que la comparación es justa.
 
 ---
 

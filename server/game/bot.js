@@ -11,7 +11,7 @@ const { INGREDIENTS, RECIPES, readyStateOf } = require('./recipes');
 const LEVELS = {
   facil:   { id: 'facil',   name: 'Facil',   speed: 0.70, react: 0.55, sloppy: 0.20 },
   normal:  { id: 'normal',  name: 'Normal',  speed: 0.88, react: 0.25, sloppy: 0.07 },
-  dificil: { id: 'dificil', name: 'Dificil', speed: 1.00, react: 0.08, sloppy: 0.00 },
+  dificil: { id: 'dificil', name: 'Dificil', speed: 1.00, react: 0.10, sloppy: 0.02 },
 };
 
 const ARRIVE = 0.16;      // margen para dar por buena la casilla destino
@@ -137,7 +137,9 @@ class Bot {
     this.standTile = null;
     const ch = this.chef;
     if (ch) ch.hold = false;
-    this.wait = this.level.react;
+    // Jitter en los reflejos: sin el, dos equipos de bots del mismo nivel harian
+    // exactamente lo mismo (mismos pedidos + IA determinista) y siempre empatarian.
+    this.wait = this.level.react * (0.75 + Math.random() * 0.5);
     if (this.level.sloppy && Math.random() < this.level.sloppy) this.wait += 0.3 + Math.random() * 0.5;
     if (this.stepIdx >= this.steps.length) this._finishPlan();
   }
@@ -342,13 +344,18 @@ class Bot {
     this.stepIdx = 0;
   }
 
-  /** Pedido sin reclamar y con mas margen de tiempo. */
+  /**
+   * Pedido sin reclamar, prefiriendo los que tienen mas margen. Entre los dos
+   * mejores se elige al azar: sin ese desempate, dos equipos de bots del mismo
+   * nivel cocinarian en el mismo orden y acabarian siempre igualados.
+   */
   _pickOrder() {
     const eng = this.eng;
     const free = eng.orders.filter((o) => !eng.isClaimed('order:' + o.id, this.id));
     if (!free.length) return null;
     free.sort((a, b) => b.expiresAt - a.expiresAt);
-    return free[0];
+    const top = free.slice(0, 2);
+    return top[Math.floor(Math.random() * top.length)];
   }
 
   _claimTile(type, isFree) {

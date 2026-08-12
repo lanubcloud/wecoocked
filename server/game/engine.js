@@ -27,9 +27,17 @@ function newPlate(dirty) {
  * Ambos equipos comparten semilla, asi que reciben exactamente los mismos pedidos.
  */
 class Engine {
-  constructor(map, seed, players) {
+  constructor(map, seed, players, teamSize) {
     this.map = map;
     this.rng = mulberry32(seed >>> 0);
+
+    // Mas cocineros -> mas pedidos simultaneos, si no el tercer jugador
+    // se queda sin nada que hacer. Se escala por el tamano de equipo de la
+    // sala (igual para ambos bandos), nunca por los jugadores presentes,
+    // para que las dos cocinas reciban exactamente la misma carga.
+    const size = Math.max(1, Math.min(3, teamSize || players.length || 1));
+    this.orderMax = [3, ORDER.maxActive, ORDER.maxActive + 1][size - 1];
+    this.orderGap = [1.15, 1.0, 0.78][size - 1];
     this.time = 0;
     this.score = 0;
     this.delivered = 0;
@@ -466,7 +474,7 @@ class Engine {
   }
 
   _stepOrders() {
-    if (this.time >= this.nextOrderAt && this.orders.length < ORDER.maxActive) {
+    if (this.time >= this.nextOrderAt && this.orders.length < this.orderMax) {
       const r = RECIPES[Math.floor(this.rng() * RECIPES.length) % RECIPES.length];
       this.orders.push({
         id: this.orderSeq++,
@@ -475,7 +483,7 @@ class Engine {
         createdAt: this.time,
         expiresAt: this.time + ORDER.lifetime,
       });
-      const gap = ORDER.intervalMin + this.rng() * (ORDER.intervalMax - ORDER.intervalMin);
+      const gap = (ORDER.intervalMin + this.rng() * (ORDER.intervalMax - ORDER.intervalMin)) * this.orderGap;
       this.nextOrderAt = this.time + gap;
     }
     for (let i = this.orders.length - 1; i >= 0; i--) {
