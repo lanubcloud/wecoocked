@@ -17,7 +17,55 @@ npm install
 npm start
 ```
 
-Abre `http://localhost:3000` en dos pestañas para probarlo tú solo.
+Abre `http://localhost:3000`, crea una sala y pulsa **+ Bot** para rellenar los equipos:
+puedes jugar solo contra bots sin esperar a nadie.
+
+```bash
+npm test
+```
+
+---
+
+## Bots
+
+Cualquier hueco de cualquier equipo se puede rellenar con un bot desde el lobby
+(botón **+ Bot**, y la **×** para quitarlo). Sirven tanto para jugar solo contra la
+máquina como para completar un equipo al que le falta gente.
+
+Ejemplos que se montan en dos toques:
+
+- **Tú solo contra un bot** — 1 por equipo.
+- **Tú + un bot compañero contra 2 bots** — el caso típico para practicar.
+- **Tu equipo de 3 personas contra 3 bots.**
+
+### Niveles
+
+| Nivel | Velocidad | Reflejos | Rinde (bot solo, 3 min) |
+|---|---|---|---|
+| Fácil | 70 % | lentos, se despista | ~2 platos |
+| Normal | 88 % | normales | ~3 platos |
+| Difícil | 100 % | inmediatos | ~4 platos |
+
+Dos bots difíciles coordinados sirven unos 6 platos por partida: es el listón a batir.
+
+Los bots juegan **con las mismas reglas que tú**: mueven el mismo joystick virtual y
+pulsan los mismos botones a través de la misma API del servidor. No hacen trampa ni
+tienen atajos. Cada bot se encarga de un pedido completo de principio a fin y reserva
+la olla, la tabla y la encimera que necesita para no pisarse con sus compañeros.
+
+---
+
+## Marcador cara a cara
+
+Durante toda la partida, cada jugador ve en su pantalla:
+
+```
+Equipo Rojo   🍣 3   52      <- tu equipo: platos servidos y puntos
+Equipo Azul   🍣 5  113      <- el rival, en tiempo real
+              -2 platos      <- diferencia, en verde o rojo
+```
+
+Así sabes en cada momento si vas ganando sin tener que preguntar.
 
 ---
 
@@ -110,18 +158,58 @@ Requisitos:
 
 ## Despliegue en el VPS
 
-```bash
-git clone <tu-repo> /var/www/wecoocked && cd /var/www/wecoocked
-npm ci --omit=dev
-npm install -g pm2
-pm2 start ecosystem.config.js && pm2 save && pm2 startup
-```
-
-Después Nginx como proxy inverso con HTTPS (ver `deploy/nginx.conf`) y:
+### Paso 1 — Subir el código a GitHub (desde tu PC, una vez)
 
 ```bash
-sudo certbot --nginx -d tu-dominio.com
+git remote add origin https://github.com/TU_USUARIO/wecoocked.git
 ```
+
+```bash
+git push -u origin main
+```
+
+### Paso 2 — Provisionar el VPS (una sola vez)
+
+Conéctate por SSH a tu servidor y ejecuta:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TU_USUARIO/wecoocked/main/deploy/setup-vps.sh -o setup-vps.sh
+```
+
+```bash
+sudo bash setup-vps.sh TU_DOMINIO.com TU_EMAIL https://github.com/TU_USUARIO/wecoocked.git
+```
+
+El script deja todo listo: Node 20, usuario de servicio, `systemd`, Nginx como proxy
+inverso, certificado HTTPS con Let's Encrypt (**imprescindible para el chat de voz**)
+y el cortafuegos. Al terminar el juego está en `https://TU_DOMINIO.com`.
+
+### Paso 3 — Despliegue automático desde GitHub
+
+En **Settings → Secrets and variables → Actions** del repositorio, añade:
+
+| Secret | Valor |
+|---|---|
+| `VPS_HOST` | IP o dominio del servidor |
+| `VPS_USER` | usuario SSH (p. ej. `root` o el tuyo) |
+| `VPS_SSH_KEY` | tu clave SSH **privada** completa |
+| `VPS_PORT` | opcional, si no usas el 22 |
+
+A partir de ahí, cada `git push` a `main` ejecuta las pruebas y, si pasan, actualiza el
+VPS solo ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)).
+
+> La clave privada la añades tú directamente en GitHub: no la compartas por chat ni la
+> guardes en el repositorio.
+
+### Operación diaria
+
+| Para... | Comando en el VPS |
+|---|---|
+| Ver el estado | `systemctl status wecoocked` |
+| Ver los logs en vivo | `journalctl -u wecoocked -f` |
+| Reiniciar | `sudo systemctl restart wecoocked` |
+| Actualizar a mano | `cd /var/www/wecoocked && bash deploy/update.sh` |
+| Comprobar salud | `curl localhost:3000/healthz` |
 
 El servidor también puede servir HTTPS por sí mismo si prefieres saltarte Nginx:
 
@@ -161,6 +249,9 @@ server/
     map.js            Mapa Negi Sushi
     recipes.js        Ingredientes y recetas
     engine.js         Simulación autoritativa (una por equipo)
+    bot.js            IA de los bots: rutas, planes y niveles
+test/               Pruebas del motor, del lanzamiento y de los bots
+deploy/             setup-vps.sh, update.sh y nginx.conf
 public/
   index.html
   css/style.css
@@ -176,6 +267,8 @@ public/
 ### Equilibrio del juego
 
 Todo el ritmo está en `server/game/config.js`: duración, velocidad, tiempos de
-cocción/corte/fregado, frecuencia y caducidad de los pedidos, penalizaciones.
+cocción/corte/fregado, frecuencia y caducidad de los pedidos, penalizaciones y
+alcance de los lanzamientos. Los niveles de los bots están en `server/game/bot.js`
+(constante `LEVELS`).
 Las recetas están en `server/game/recipes.js` y el mapa en `server/game/map.js`
 (basta con editar la cuadrícula `LAYOUT`, todo lo demás se deriva de ella).
