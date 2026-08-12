@@ -1,0 +1,10 @@
+{
+  "name": "Wecoocked - Sushi Rush",
+  "short_name": "Wecoocked",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#12131a",
+  "theme_color": "#12131a",
+  "icons": []
+}

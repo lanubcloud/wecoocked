@@ -1,0 +1,178 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#12131a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Wecoocked - Sushi Rush</title>
+<link rel="manifest" href="manifest.webmanifest">
+<!-- Sube ?v= al desplegar para que los moviles no se queden con la version cacheada -->
+<link rel="stylesheet" href="css/style.css?v=7">
+</head>
+<body>
+
+<!-- ============================ MENU ============================ -->
+<section id="screen-menu" class="screen active">
+  <div class="menu-wrap">
+    <h1 class="logo">WE<span>COOCKED</span></h1>
+    <p class="tagline">Sushi Rush &middot; 3 minutos &middot; 2 equipos</p>
+
+    <label class="field">
+      <span>Tu nombre</span>
+      <input id="inp-name" type="text" maxlength="14" placeholder="Chef" autocomplete="nickname">
+    </label>
+
+    <div class="row">
+      <button id="btn-create" class="btn primary">Crear sala</button>
+    </div>
+
+    <div class="row join-row">
+      <input id="inp-code" type="text" maxlength="4" placeholder="CODIGO" autocapitalize="characters" autocomplete="off">
+      <button id="btn-join" class="btn">Unirse</button>
+    </div>
+
+    <p class="hint">Gira el movil en horizontal para jugar. Usa auriculares para el chat de voz.</p>
+  </div>
+</section>
+
+<!-- ============================ LOBBY ============================ -->
+<section id="screen-lobby" class="screen">
+  <div class="lobby-wrap">
+    <header class="lobby-head">
+      <div>
+        <div class="lbl">Codigo de sala</div>
+        <div id="lobby-code" class="code">----</div>
+      </div>
+      <div class="lobby-actions">
+        <button id="btn-copy" class="btn tiny">Copiar link</button>
+        <button id="btn-leave" class="btn tiny danger">Salir</button>
+      </div>
+    </header>
+
+    <div class="teams">
+      <div class="team" data-team="A">
+        <h3><span class="dot" style="background:#ff5757"></span> Equipo Rojo</h3>
+        <ul id="team-A" class="players"></ul>
+        <div class="team-actions">
+          <button class="btn tiny join-team" data-team="A">Unirme</button>
+          <button class="btn tiny add-bot" data-team="A">+ Bot</button>
+        </div>
+      </div>
+      <div class="team" data-team="B">
+        <h3><span class="dot" style="background:#4aa8ff"></span> Equipo Azul</h3>
+        <ul id="team-B" class="players"></ul>
+        <div class="team-actions">
+          <button class="btn tiny join-team" data-team="B">Unirme</button>
+          <button class="btn tiny add-bot" data-team="B">+ Bot</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="lobby-controls">
+      <div class="seg" id="seg-size">
+        <span class="seg-lbl">Jugadores por equipo</span>
+        <button class="btn tiny size-opt" data-size="2">2</button>
+        <button class="btn tiny size-opt" data-size="3">3</button>
+      </div>
+      <div class="seg" id="seg-level">
+        <span class="seg-lbl">Nivel de los bots</span>
+        <button class="btn tiny level-opt" data-level="facil">Facil</button>
+        <button class="btn tiny level-opt" data-level="normal">Normal</button>
+        <button class="btn tiny level-opt" data-level="dificil">Dificil</button>
+      </div>
+      <div class="lobby-buttons">
+        <button id="btn-mic" class="btn">Activar micro</button>
+        <button id="btn-ready" class="btn">Listo</button>
+        <button id="btn-start" class="btn primary">Empezar</button>
+      </div>
+    </div>
+    <p id="lobby-hint" class="hint"></p>
+  </div>
+</section>
+
+<!-- ============================ JUEGO ============================ -->
+<section id="screen-game" class="screen">
+  <canvas id="cv"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hud">
+    <div class="hud-top">
+      <div id="orders" class="orders"></div>
+      <div class="hud-right">
+        <div id="timer" class="timer">03:00</div>
+        <div class="scoreboard">
+          <div class="sb sb-me">
+            <span class="sb-name" id="sb-me-name">Tu equipo</span>
+            <span class="sb-plates">&#127843;<b id="pl-me">0</b></span>
+            <b class="sb-pts" id="sb-me">0</b>
+          </div>
+          <div class="sb sb-op">
+            <span class="sb-name" id="sb-op-name">Rival</span>
+            <span class="sb-plates">&#127843;<b id="pl-op">0</b></span>
+            <b class="sb-pts" id="sb-op">0</b>
+          </div>
+          <div class="sb-diff" id="sb-diff"></div>
+        </div>
+      </div>
+    </div>
+    <div id="toast" class="toast"></div>
+    <div id="countdown" class="countdown"></div>
+  </div>
+
+  <!-- Controles tactiles -->
+  <div id="controls" class="controls">
+    <div id="zone-move" class="zone zone-left">
+      <div id="stick-move" class="stick"><div class="knob"></div></div>
+    </div>
+    <div id="zone-aim" class="zone zone-right">
+      <div id="stick-aim" class="stick aim"><div class="knob"></div></div>
+    </div>
+    <div class="buttons">
+      <button id="btn-dash" class="gbtn dash" aria-label="Esprint">DASH</button>
+      <button id="btn-b" class="gbtn b" aria-label="Cortar o lavar">B</button>
+      <button id="btn-a" class="gbtn a" aria-label="Coger o soltar">A</button>
+    </div>
+    <button id="btn-ptt" class="micbtn" aria-label="Micro">MIC</button>
+    <button id="btn-menu" class="menubtn" aria-label="Menu">II</button>
+  </div>
+
+  <!-- Pausa -->
+  <div id="pause" class="modal">
+    <div class="modal-box">
+      <h2>Pausa</h2>
+      <label class="switch"><input type="checkbox" id="opt-aim" checked><span>Joystick derecho (apuntar)</span></label>
+      <label class="switch"><input type="checkbox" id="opt-throw" checked><span>Lanzar al soltar el joystick derecho</span></label>
+      <label class="switch"><input type="checkbox" id="opt-ptt"><span>Micro: pulsar para hablar</span></label>
+      <label class="switch"><input type="checkbox" id="opt-haptic" checked><span>Vibracion</span></label>
+      <div class="modal-actions">
+        <button id="btn-resume" class="btn primary">Continuar</button>
+        <button id="btn-quit" class="btn danger">Abandonar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ RESULTADOS ============================ -->
+<section id="screen-results" class="screen">
+  <div class="results-wrap">
+    <h2 id="res-title">Resultados</h2>
+    <div id="res-body" class="res-body"></div>
+    <button id="btn-back" class="btn primary">Volver al lobby</button>
+  </div>
+</section>
+
+<div id="rotate" class="rotate"><div>Gira el movil<br><small>Wecoocked se juega en horizontal</small></div></div>
+<div id="netstat" class="netstat"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/net.js?v=7"></script>
+<script src="js/input.js?v=7"></script>
+<script src="js/voice.js?v=7"></script>
+<script src="js/render.js?v=7"></script>
+<script src="js/ui.js?v=7"></script>
+<script src="js/main.js?v=7"></script>
+</body>
+</html>

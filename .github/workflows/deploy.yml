@@ -1,0 +1,45 @@
+name: Desplegar en el VPS
+
+# Cada push a main actualiza el servidor automaticamente.
+# Tambien se puede lanzar a mano desde la pestana Actions de GitHub.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Comprobar que el servidor carga
+        run: node -e "require('./server/rooms.js'); require('./server/game/engine.js'); console.log('modulos OK')"
+      - name: Pruebas del motor y de los bots
+        run: npm test
+
+  deploy:
+    name: Desplegar
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conectar por SSH y actualizar
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            cd /var/www/wecoocked
+            bash deploy/update.sh

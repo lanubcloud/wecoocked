@@ -1,0 +1,19 @@
+{
+  "name": "wecoocked",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Juego multijugador tipo Overcooked para movil (landscape) con voz por equipo",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node test/run.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
