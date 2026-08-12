@@ -6,3 +6,6 @@ logs/
 
 # paquete de despliegue manual, se regenera con deploy/make-zip.ps1
 wecoocked.zip
+
+# descriptor que genera el panel SureApp en el servidor: es suyo, no del repo
+sureapp.json
