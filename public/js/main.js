@@ -4,7 +4,8 @@
 
   const CHEF_SPEED = 4.6;
   const CHEF_R = 0.34;
-  const INTERP_MS = 110;
+  const INTERP_MIN = 55;    // margen minimo de interpolacion
+  const INTERP_MAX = 160;
 
   const G = {
     myTeam: 'A',
@@ -18,7 +19,30 @@
     playing: false,
     lastFrame: 0,
     wakeLock: null,
+    gaps: [],          // separacion entre snapshots, para medir el jitter
+    lastSnapAt: 0,
+    interp: 110,       // retardo de interpolacion, se ajusta solo
   };
+
+  /**
+   * Retardo de interpolacion adaptativo.
+   *
+   * Para dibujar a los demas cocineros hay que ir un poco "por detras" del
+   * ultimo snapshot recibido, o al primer paquete que llegue tarde se
+   * congelarian. Ese margen se sumaba antes como 110 ms fijos, pensados para
+   * el peor caso. Si la conexion es estable no hacen falta: basta con un
+   * snapshot mas el jitter real medido, y cada milisegundo que se recorta
+   * aqui es un milisegundo menos de retardo al ver a tus companeros.
+   */
+  function updateInterp() {
+    if (G.gaps.length < 6) return;
+    const s = G.gaps.slice().sort((a, b) => a - b);
+    const mediana = s[s.length >> 1];
+    const p90 = s[Math.min(s.length - 1, Math.floor(s.length * 0.9))];
+    const jitter = Math.max(0, p90 - mediana);
+    const objetivo = Math.max(INTERP_MIN, Math.min(INTERP_MAX, mediana + jitter * 1.5 + 8));
+    G.interp += (objetivo - G.interp) * 0.1;   // suavizado, para que no de saltos
+  }
 
   // ------------------------------------------------------------- utilidades
   function saveName(n) { try { localStorage.setItem('wc_name', n); } catch (_) {} }
@@ -157,7 +181,10 @@
     el.classList.toggle('talking', Voice.enabled && Voice.speaking);
     el.textContent = !Voice.enabled ? 'MIC' : Voice.ptt ? 'PTT' : on ? 'ON' : 'OFF';
     const n = Voice.peers.size;
-    $('#netstat').textContent = `${Net.ping}ms · voz ${Voice.enabled ? n + ' peer' + (n === 1 ? '' : 's') : 'off'}`;
+    // 'ws' = WebSocket (lo bueno). 'polling' = modo lento, hay algo que revisar.
+    const tr = Net.transport() === 'websocket' ? 'ws' : Net.transport();
+    $('#netstat').textContent =
+      `${Net.ping}ms · ${tr} · buffer ${Math.round(G.interp)}ms · voz ${Voice.enabled ? n : 'off'}`;
   }
 
   // ------------------------------------------------------------------ red
@@ -198,6 +225,12 @@
 
     Net.on('state', (snap) => {
       const now = performance.now();
+      if (G.lastSnapAt) {
+        G.gaps.push(now - G.lastSnapAt);
+        while (G.gaps.length > 24) G.gaps.shift();
+        updateInterp();
+      }
+      G.lastSnapAt = now;
       G.latest = snap;
       G.buffer.push({ t: now, chefs: snap.chefs });
       while (G.buffer.length > 20) G.buffer.shift();
@@ -265,7 +298,7 @@
 
     let view = null;
     if (G.latest) {
-      const chefs = sampleChefs(now - INTERP_MS);
+      const chefs = sampleChefs(now - G.interp);
       // prediccion local del propio cocinero
       if (G.me && G.playing) {
         const inp = Input.snapshot();
@@ -303,8 +336,11 @@
 
     Net.connect(loadName() || 'Chef');
 
-    // envio de input a 20 Hz
-    setInterval(() => { if (UI.screen === 'game' && G.playing) Net.sendInput(Input.snapshot()); }, 50);
+    // Envio de input a 30 Hz aunque el servidor simule a 20: asi el estado del
+    // joystick que lee cada tick es mas reciente. Son 60 bytes por paquete,
+    // cuesta 0,6 KB/s de nada y recorta la espera media hasta que tu accion
+    // entra en la simulacion.
+    setInterval(() => { if (UI.screen === 'game' && G.playing) Net.sendInput(Input.snapshot()); }, 33);
     setInterval(updateMicBtn, 1000);
 
     window.addEventListener('resize', () => { UI.checkOrientation(); Render.resize(); });

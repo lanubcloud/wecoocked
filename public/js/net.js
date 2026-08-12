@@ -9,7 +9,7 @@
     room: null,
     handlers: {},
     ping: 0,
-    _lastInputSent: 0,
+    rtts: [],
 
     on(evt, fn) { (this.handlers[evt] || (this.handlers[evt] = [])).push(fn); return this; },
     emitLocal(evt, data) { (this.handlers[evt] || []).forEach((f) => f(data)); },
@@ -33,12 +33,25 @@
         s.on(evt, (d) => this.emitLocal(evt, d));
       });
 
+      // Muestreo cada segundo y nos quedamos con el MINIMO de las ultimas
+      // muestras: una medida suelta puede venir inflada porque el navegador o
+      // el servidor estaban ocupados en ese instante, y el minimo reciente se
+      // acerca mucho mas al retardo real de la red.
       setInterval(() => {
         if (!s.connected) return;
         const t0 = performance.now();
-        s.emit('ping:cli', null, () => { this.ping = Math.round(performance.now() - t0); });
-      }, 3000);
+        s.emit('ping:cli', null, () => {
+          this.rtts.push(performance.now() - t0);
+          while (this.rtts.length > 6) this.rtts.shift();
+          this.ping = Math.round(Math.min.apply(null, this.rtts));
+        });
+      }, 1000);
       return this;
+    },
+
+    /** 'websocket' o 'polling': si cae a polling, la partida va con retardo. */
+    transport() {
+      try { return this.socket.io.engine.transport.name; } catch (_) { return '?'; }
     },
 
     create(name, teamSize) {
