@@ -1,13 +1,10 @@
 /*
- * Renderizado 2.5D del mapa Negi Sushi.
+ * Renderizado 2.5D de la cocina Negi Sushi.
  *
- * La rejilla se dibuja en perspectiva 3/4: las casillas son mas anchas que
- * altas (SQUASH) y los muebles se levantan del suelo con una cara superior y
- * un lateral sombreado. No es 3D real, pero da el mismo volumen y permite
- * seguir razonando en coordenadas de casilla para colisiones e interaccion.
- *
- * La camara sigue al cocinero local con zoom, en vez de encajar todo el mapa:
- * asi las casillas se ven grandes y el personaje cerca.
+ * Todo el arte del tablero se dibuja a mano con canvas (nada de emojis):
+ * asi los ingredientes tienen estados visibles (entero / cortado / cocido),
+ * los muebles tienen volumen y el conjunto se ve como un juego y no como
+ * una cuadricula con pegatinas.
  */
 (function (global) {
   'use strict';
@@ -31,29 +28,27 @@
 
   const SQUASH = 0.72;        // alto/ancho de cada casilla (perspectiva 3/4)
   const BLOCK = 0.50;         // altura de los muebles, en anchos de casilla
-  const PAD_TOP = 26;         // hueco para el HUD (solo ocupa las esquinas)
+  const PAD_TOP = 26;
   const PAD = 6;
 
-  // Paleta de la cocina
   const C = {
-    tileA: '#e6ddc9', tileB: '#dbd0b8', grout: 'rgba(120,102,72,.16)',
-    woodTop: '#e9b26a', woodFace: '#b87b33', woodEdge: '#f7d4a1',
-    steelTop: '#c3cad9', steelFace: '#7e879b',
-    darkTop: '#2c3040', darkFace: '#171a24',
-    wallTop: '#3c4459', wallFace: '#222736',
+    tileA: '#efe4cb', tileB: '#e4d7b9', grout: 'rgba(120,102,72,.14)',
+    woodTop: '#e7a95c', woodFace: '#a96e2b', woodEdge: '#f8d8a4', woodGrain: 'rgba(120,74,20,.18)',
+    steelTop: '#c6cddc', steelFace: '#7e879b',
+    darkTop: '#2c3040', darkFace: '#14161f',
+    wallTop: '#3b4157', wallFace: '#1d2231',
   };
 
   const Render = {
     cv: null, ctx: null, dpr: 1, cw: 0, chh: 0,
     map: null, cells: null, ing: null, recipes: null,
-    tw: 40, th: 32, bh: 20,
-    cam: { x: 11, y: 6.5 },
+    tw: 40, th: 30, bh: 20,
+    cam: { x: 7, y: 4.5 },
     pops: [], overlays: [], t: 0,
     meId: null, myTeam: 'A',
     aim: { x: 0, y: 0, active: false, canThrow: false },
     throwRange: 7,
     scenery: null,
-    _floor: null,
 
     init(canvas) {
       this.cv = canvas;
@@ -76,11 +71,8 @@
           this.cells.push({ x, y, ch, type: LEGEND[ch] || 'floor', ing: CRATE_ING[ch] || null });
         }
       }
-      this.cam.x = map.w / 2;
-      this.cam.y = map.h / 2;
       this.scenery = buildScenery(map);
       this.pops.length = 0;
-      this._floor = null;
       this.resize();
     },
 
@@ -92,6 +84,26 @@
       const c = this.cellAt(x, y);
       return !c || SOLID.has(c.type);
     },
+    interactiveAt(x, y) {
+      const c = this.cellAt(x, y);
+      return !!c && SOLID.has(c.type) && c.type !== 'wall';
+    },
+
+    /** Misma tolerancia que el servidor: la casilla interactiva mas alineada. */
+    frontTile(ch) {
+      const d = 0.34 + 0.5;
+      const ex = Math.floor(ch.x + ch.fx * d), ey = Math.floor(ch.y + ch.fy * d);
+      if (this.interactiveAt(ex, ey)) return { x: ex, y: ey };
+      const cx = Math.floor(ch.x), cy = Math.floor(ch.y);
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+        .map(([dx, dy]) => ({ dx, dy, dot: dx * ch.fx + dy * ch.fy }))
+        .filter((o) => o.dot > 0.3)
+        .sort((a, b) => b.dot - a.dot);
+      for (const o of dirs) {
+        if (this.interactiveAt(cx + o.dx, cy + o.dy)) return { x: cx + o.dx, y: cy + o.dy };
+      }
+      return null;
+    },
 
     resize() {
       if (!this.cv) return;
@@ -102,31 +114,17 @@
       this.cv.width = Math.round(w * dpr);
       this.cv.height = Math.round(h * dpr);
       if (!this.map) return;
-      // La cocina entera tiene que caber en pantalla: el tamano de casilla es
-      // el mayor que lo permite. Por eso el mapa es compacto.
-      // Se deja un margen a los lados para que asome el comedor.
       const lado = Math.max(PAD, w * 0.045);
       this.tw = Math.min((w - lado * 2) / this.map.w, (h - PAD_TOP - PAD) / (this.map.h * SQUASH));
       this.th = this.tw * SQUASH;
       this.bh = this.tw * BLOCK;
       this.cam.x = this.map.w / 2;
       this.cam.y = this.map.h / 2;
-      this._floor = null;
     },
 
-    // --------------------------------------------------------- coordenadas
     sx(x) { return (x - this.cam.x) * this.tw + this.cw / 2; },
     sy(y) { return (y - this.cam.y) * this.th + this.chh / 2 + PAD_TOP / 2; },
-
-    /**
-     * Camara fija centrada: se ve la cocina entera de un vistazo, que es lo
-     * que hace falta para coordinarse con el equipo. No persigue a nadie.
-     */
-    follow() {
-      if (!this.map) return;
-      this.cam.x = this.map.w / 2;
-      this.cam.y = this.map.h / 2;
-    },
+    follow() { /* camara fija centrada */ },
 
     // -------------------------------------------------------------- helpers
     rr(x, y, w, h, r) {
@@ -140,20 +138,21 @@
       ctx.arcTo(x, y, x + w, y, rad);
       ctx.closePath();
     },
-    glyph(txt, px, py, size) {
+    ell(x, y, rx, ry, col) {
       const ctx = this.ctx;
-      ctx.font = `${size}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",system-ui`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(txt, px, py);
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 7); ctx.fill();
     },
     shadow(cx, cy, rx, alpha) {
+      this.ell(cx, cy, rx, rx * 0.4, `rgba(24,16,6,${alpha})`);
+    },
+    glyph(txt, px, py, size) {
       const ctx = this.ctx;
-      ctx.fillStyle = `rgba(20,14,6,${alpha})`;
-      ctx.beginPath(); ctx.ellipse(cx, cy, rx, rx * 0.42, 0, 0, 7); ctx.fill();
+      ctx.font = `${size}px "Segoe UI Emoji","Apple Color Emoji",system-ui`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, px, py);
     },
 
-    /** Mueble con volumen: lateral + cara superior levantada. */
     block(x, y, faceCol, topCol, r) {
       const ctx = this.ctx;
       const px = this.sx(x), py = this.sy(y);
@@ -167,15 +166,215 @@
       return { px, py: py - bh, w, h };
     },
 
-    // ------------------------------------------------------------- escenario
+    // ================================================================ COMIDA
+    /**
+     * Arte de cada ingrediente, dibujado segun su estado. Cortado = trozos,
+     * cocido = brillo calido, quemado = carbon. Nada de iconos genericos.
+     */
+    drawFood(t, state, cx, cy, s) {
+      const ctx = this.ctx;
+      if (state === 'burnt') {
+        this.ell(cx, cy, s * 0.34, s * 0.24, '#241b12');
+        this.ell(cx - s * 0.1, cy - s * 0.08, s * 0.12, s * 0.08, '#3a2d1d');
+        ctx.strokeStyle = '#4a3a26'; ctx.lineWidth = Math.max(1, s * 0.03);
+        ctx.beginPath(); ctx.moveTo(cx - s * 0.15, cy); ctx.lineTo(cx + s * 0.12, cy + s * 0.06); ctx.stroke();
+        return;
+      }
+      switch (t) {
+        case 'nori': {
+          if (state === 'chopped') {
+            for (let i = -1; i <= 1; i++) {
+              ctx.fillStyle = '#245032';
+              this.rr(cx + i * s * 0.24 - s * 0.09, cy - s * 0.22 + Math.abs(i) * s * 0.04, s * 0.18, s * 0.44, s * 0.03);
+              ctx.fill();
+              ctx.fillStyle = '#35714a';
+              this.rr(cx + i * s * 0.24 - s * 0.06, cy - s * 0.18 + Math.abs(i) * s * 0.04, s * 0.12, s * 0.06, s * 0.02);
+              ctx.fill();
+            }
+          } else {
+            ctx.fillStyle = '#245032';
+            this.rr(cx - s * 0.3, cy - s * 0.26, s * 0.6, s * 0.52, s * 0.05); ctx.fill();
+            ctx.strokeStyle = '#35714a'; ctx.lineWidth = Math.max(1, s * 0.03);
+            this.rr(cx - s * 0.24, cy - s * 0.2, s * 0.48, s * 0.4, s * 0.04); ctx.stroke();
+            ctx.fillStyle = 'rgba(120,190,140,.35)';
+            this.rr(cx - s * 0.22, cy - s * 0.18, s * 0.16, s * 0.1, s * 0.02); ctx.fill();
+          }
+          break;
+        }
+        case 'rice': {
+          if (state === 'cooked') {
+            this.ell(cx, cy + s * 0.06, s * 0.3, s * 0.2, '#f3efe2');
+            this.ell(cx, cy - s * 0.05, s * 0.26, s * 0.18, '#fdfcf6');
+            this.ell(cx - s * 0.08, cy - s * 0.12, s * 0.09, s * 0.05, '#ffffff');
+          } else {
+            // saco de arroz
+            ctx.fillStyle = '#e6d6b2';
+            this.rr(cx - s * 0.24, cy - s * 0.18, s * 0.48, s * 0.42, s * 0.1); ctx.fill();
+            ctx.fillStyle = '#cdb787';
+            this.rr(cx - s * 0.1, cy - s * 0.3, s * 0.2, s * 0.14, s * 0.05); ctx.fill();
+            ctx.fillStyle = '#a98f5f';
+            this.rr(cx - s * 0.12, cy - s * 0.2, s * 0.24, s * 0.05, s * 0.02); ctx.fill();
+            ctx.fillStyle = '#fdfcf6';
+            for (let i = 0; i < 4; i++) this.ell(cx - s * 0.1 + i * s * 0.07, cy + s * 0.05, s * 0.025, s * 0.04, '#fdfcf6');
+          }
+          break;
+        }
+        case 'cucumber': {
+          if (state === 'chopped') {
+            const pos = [[-0.2, 0.05], [0.02, -0.1], [0.22, 0.06]];
+            for (const [dx, dy] of pos) {
+              this.ell(cx + dx * s, cy + dy * s, s * 0.14, s * 0.11, '#4c9b3c');
+              this.ell(cx + dx * s, cy + dy * s, s * 0.1, s * 0.075, '#cdeaa2');
+              this.ell(cx + dx * s - s * 0.03, cy + dy * s, s * 0.015, s * 0.02, '#f2f7d8');
+              this.ell(cx + dx * s + s * 0.03, cy + dy * s, s * 0.015, s * 0.02, '#f2f7d8');
+            }
+          } else {
+            ctx.save();
+            ctx.translate(cx, cy); ctx.rotate(-0.35);
+            ctx.fillStyle = '#4c9b3c';
+            this.rr(-s * 0.3, -s * 0.11, s * 0.6, s * 0.22, s * 0.11); ctx.fill();
+            ctx.fillStyle = '#3a7c2e';
+            this.rr(-s * 0.22, -s * 0.08, s * 0.09, s * 0.16, s * 0.04); ctx.fill();
+            this.rr(0, -s * 0.08, s * 0.09, s * 0.16, s * 0.04); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,.25)';
+            this.rr(-s * 0.24, -s * 0.08, s * 0.4, s * 0.05, s * 0.025); ctx.fill();
+            ctx.restore();
+          }
+          break;
+        }
+        case 'shrimp': {
+          const pieza = (px, py, escala, rot) => {
+            ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
+            ctx.fillStyle = '#ff9166';
+            ctx.beginPath();
+            ctx.arc(0, 0, s * 0.2 * escala, Math.PI * 0.15, Math.PI * 1.2);
+            ctx.arc(s * 0.05 * escala, s * 0.02 * escala, s * 0.13 * escala, Math.PI * 1.2, Math.PI * 0.15, true);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#e5673f'; ctx.lineWidth = Math.max(1, s * 0.028);
+            ctx.beginPath(); ctx.arc(0, 0, s * 0.165 * escala, Math.PI * 0.3, Math.PI * 1.05); ctx.stroke();
+            ctx.restore();
+          };
+          if (state === 'chopped') {
+            pieza(cx - s * 0.16, cy + s * 0.04, 0.72, 0.5);
+            pieza(cx + s * 0.16, cy - s * 0.04, 0.72, -1.8);
+          } else {
+            pieza(cx, cy, 1.15, 0);
+            ctx.fillStyle = '#e5673f';
+            ctx.beginPath();
+            ctx.moveTo(cx + s * 0.16, cy - s * 0.14);
+            ctx.lineTo(cx + s * 0.3, cy - s * 0.24);
+            ctx.lineTo(cx + s * 0.26, cy - s * 0.06);
+            ctx.closePath(); ctx.fill();
+          }
+          break;
+        }
+        case 'salmon': {
+          if (state === 'chopped') {
+            for (let i = 0; i < 2; i++) {
+              ctx.save();
+              ctx.translate(cx + (i - 0.5) * s * 0.3, cy + (i ? -1 : 1) * s * 0.04);
+              ctx.rotate(-0.25 + i * 0.4);
+              ctx.fillStyle = '#fc9273';
+              this.rr(-s * 0.16, -s * 0.11, s * 0.32, s * 0.22, s * 0.05); ctx.fill();
+              ctx.strokeStyle = '#ffe0d2'; ctx.lineWidth = Math.max(1, s * 0.03);
+              ctx.beginPath();
+              ctx.moveTo(-s * 0.1, -s * 0.08); ctx.quadraticCurveTo(0, 0, -s * 0.1, s * 0.08);
+              ctx.moveTo(s * 0.02, -s * 0.08); ctx.quadraticCurveTo(s * 0.12, 0, s * 0.02, s * 0.08);
+              ctx.stroke();
+              ctx.restore();
+            }
+          } else {
+            ctx.save();
+            ctx.translate(cx, cy); ctx.rotate(-0.2);
+            ctx.fillStyle = '#fc8161';
+            this.rr(-s * 0.3, -s * 0.15, s * 0.6, s * 0.3, s * 0.1); ctx.fill();
+            ctx.fillStyle = '#d95f43';
+            this.rr(-s * 0.3, s * 0.06, s * 0.6, s * 0.09, s * 0.045); ctx.fill();
+            ctx.strokeStyle = '#ffd9c9'; ctx.lineWidth = Math.max(1, s * 0.035);
+            for (let i = -1; i <= 1; i++) {
+              ctx.beginPath();
+              ctx.moveTo(i * s * 0.16 - s * 0.05, -s * 0.12);
+              ctx.quadraticCurveTo(i * s * 0.16 + s * 0.06, 0, i * s * 0.16 - s * 0.05, s * 0.1);
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+          break;
+        }
+        default:
+          this.ell(cx, cy, s * 0.24, s * 0.18, '#c8b088');
+      }
+    },
+
+    drawPlate(cx, cy, s, dirty, contents) {
+      const ctx = this.ctx;
+      this.ell(cx, cy + s * 0.03, s * 0.5, s * 0.3, dirty ? '#8f8168' : '#dcd9d0');
+      this.ell(cx, cy, s * 0.5, s * 0.3, dirty ? '#b3a68b' : '#f7f6f1');
+      this.ell(cx, cy, s * 0.36, s * 0.2, dirty ? '#a3947a' : '#eceade');
+      if (dirty) {
+        this.ell(cx - s * 0.1, cy - s * 0.03, s * 0.09, s * 0.05, '#8f7f63');
+        this.ell(cx + s * 0.12, cy + s * 0.04, s * 0.07, s * 0.04, '#8f7f63');
+        return;
+      }
+      const list = contents || [];
+      const n = list.length;
+      list.forEach((t, i) => {
+        const a = n === 1 ? -Math.PI / 2 : (i / n) * Math.PI * 2 - Math.PI / 2;
+        const r = n === 1 ? 0 : s * 0.17;
+        const st = this.ing && this.ing[t] && this.ing[t].prep === 'cook' ? 'cooked'
+          : this.ing && this.ing[t] && this.ing[t].prep === 'chop' ? 'chopped' : 'raw';
+        this.drawFood(t, st, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.6 - s * 0.04, s * (n > 2 ? 0.5 : 0.62));
+      });
+    },
+
+    drawItem(item, cx, cy, s, prog) {
+      if (!item) return;
+      if (item.k === 'p') { this.drawPlate(cx, cy, s, !!item.d, item.c); return; }
+      const p = prog || 0;
+      if (item.s === 'raw' && p > 0) {
+        // a medio cortar: las dos mitades se separan y aparece la linea de corte
+        const sep = s * 0.16 * p;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.beginPath(); ctx.rect(cx - s * 0.6, cy - s * 0.6, s * 0.6 - sep * 0.3, s * 1.2); ctx.clip();
+        this.drawFood(item.t, 'raw', cx - sep, cy, s);
+        ctx.restore();
+        ctx.save();
+        ctx.beginPath(); ctx.rect(cx + sep * 0.3, cy - s * 0.6, s * 0.6, s * 1.2); ctx.clip();
+        this.drawFood(item.t, 'raw', cx + sep, cy, s);
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = Math.max(1, s * 0.03);
+        ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.24); ctx.lineTo(cx, cy + s * 0.24); ctx.stroke();
+        return;
+      }
+      this.drawFood(item.t, item.s, cx, cy, s);
+    },
+
+    drawPlateStack(cx, cy, size, n, dirty) {
+      const k = Math.min(n, 4);
+      for (let i = 0; i < k; i++) this.drawPlate(cx, cy - i * size * 0.11, size * 0.9, dirty, null);
+      if (n > 4) {
+        const ctx = this.ctx;
+        ctx.fillStyle = '#20232e';
+        ctx.font = `700 ${size * 0.3}px ui-sans-serif,system-ui`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('x' + n, cx, cy - k * size * 0.11 - size * 0.18);
+      }
+    },
+
+    // ============================================================== ESCENARIO
     drawScenery() {
       const ctx = this.ctx;
-      // suelo del local, fuera de la cocina
-      ctx.fillStyle = '#2a2233';
+      ctx.fillStyle = '#262032';
       ctx.fillRect(0, 0, this.cw, this.chh);
-      const g = ctx.createRadialGradient(this.cw / 2, this.chh / 2, this.tw, this.cw / 2, this.chh / 2, this.cw * 0.8);
-      g.addColorStop(0, 'rgba(255,190,120,.10)');
-      g.addColorStop(1, 'rgba(0,0,0,.45)');
+      // listones del suelo del local
+      ctx.strokeStyle = 'rgba(255,255,255,.03)'; ctx.lineWidth = 1;
+      for (let y = 0; y < this.chh; y += 26) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(this.cw, y); ctx.stroke();
+      }
+      const g = ctx.createRadialGradient(this.cw / 2, this.chh / 2, this.tw, this.cw / 2, this.chh / 2, this.cw * 0.75);
+      g.addColorStop(0, 'rgba(255,196,130,.12)');
+      g.addColorStop(1, 'rgba(0,0,0,.5)');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, this.cw, this.chh);
 
@@ -188,37 +387,32 @@
     drawMesa(m) {
       const ctx = this.ctx;
       const cx = this.sx(m.x), cy = this.sy(m.y);
-      if (cx < -120 || cx > this.cw + 120 || cy < -120 || cy > this.chh + 120) return;
-      const r = this.tw * 0.44;
-      this.shadow(cx, cy + r * 0.5, r * 1.05, 0.35);
-      // comensales
+      if (cx < -140 || cx > this.cw + 140 || cy < -140 || cy > this.chh + 140) return;
+      const r = this.tw * 0.5;
+      this.shadow(cx, cy + r * 0.5, r * 1.1, 0.35);
       m.sillas.forEach((a, i) => {
-        const px = cx + Math.cos(a) * r * 1.35, py = cy + Math.sin(a) * r * 1.0;
+        const px = cx + Math.cos(a) * r * 1.4, py = cy + Math.sin(a) * r * 1.05;
         this.drawComensal(px, py, m.colores[i], m.seed + i);
       });
-      // tablero
-      ctx.fillStyle = '#5a3320';
-      this.rr(cx - r, cy - r * 0.72 + 4, r * 2, r * 1.5, r * 0.5); ctx.fill();
-      ctx.fillStyle = '#7d4a2c';
-      this.rr(cx - r, cy - r * 0.8, r * 2, r * 1.5, r * 0.5); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.10)';
-      this.rr(cx - r * 0.8, cy - r * 0.62, r * 1.6, r * 0.34, r * 0.17); ctx.fill();
-      // platos servidos
-      ctx.fillStyle = '#eee9dd';
-      ctx.beginPath(); ctx.ellipse(cx, cy - r * 0.1, r * 0.3, r * 0.2, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#4a2a18';
+      this.ell(cx, cy + 4, r, r * 0.72, '#4a2a18');
+      this.ell(cx, cy, r, r * 0.72, '#7d4a2c');
+      this.ell(cx, cy - 2, r * 0.82, r * 0.58, '#8d5836');
+      // mantel individual + plato con sushi
+      this.ell(cx, cy - 2, r * 0.5, r * 0.34, '#c9b9a0');
+      this.drawPlate(cx, cy - 3, r * 0.55, false, ['salmon']);
     },
 
     drawComensal(px, py, col, seed) {
       const ctx = this.ctx;
       const r = this.tw * 0.2;
-      const bob = Math.sin(this.t * 2 + seed) * r * 0.09;
-      this.shadow(px, py + r * 0.9, r * 0.8, 0.28);
+      const bob = Math.sin(this.t * 2 + seed) * r * 0.08;
+      this.shadow(px, py + r * 0.9, r * 0.75, 0.28);
       ctx.fillStyle = col;
-      this.rr(px - r * 0.7, py - r * 0.2 + bob, r * 1.4, r * 1.2, r * 0.5); ctx.fill();
-      ctx.fillStyle = '#f0c9a8';
-      ctx.beginPath(); ctx.arc(px, py - r * 0.75 + bob, r * 0.55, 0, 7); ctx.fill();
+      this.rr(px - r * 0.68, py - r * 0.2 + bob, r * 1.36, r * 1.15, r * 0.5); ctx.fill();
+      this.ell(px, py - r * 0.72 + bob, r * 0.5, r * 0.5, '#f0c9a8');
       ctx.fillStyle = '#2b2119';
-      ctx.beginPath(); ctx.arc(px, py - r * 1.05 + bob, r * 0.56, Math.PI, 0); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py - r * 1.0 + bob, r * 0.51, Math.PI, 0); ctx.fill();
     },
 
     drawCamarero(w) {
@@ -228,23 +422,19 @@
       const x = p.x + (q.x - p.x) * w.t;
       const y = p.y + (q.y - p.y) * w.t;
       const cx = this.sx(x), cy = this.sy(y);
-      if (cx < -120 || cx > this.cw + 120 || cy < -120 || cy > this.chh + 120) return;
-      const r = this.tw * 0.24;
-      const paso = Math.sin(this.t * 8 + w.seed) * r * 0.16;
-      this.shadow(cx, cy + r * 1.0, r * 0.85, 0.32);
-      // cuerpo con chaleco
+      if (cx < -140 || cx > this.cw + 140 || cy < -140 || cy > this.chh + 140) return;
+      const r = this.tw * 0.23;
+      const paso = Math.sin(this.t * 8 + w.seed) * r * 0.15;
+      this.shadow(cx, cy + r, r * 0.8, 0.32);
       ctx.fillStyle = '#20242e';
-      this.rr(cx - r * 0.68, cy - r * 0.3 + paso * 0.3, r * 1.36, r * 1.35, r * 0.45); ctx.fill();
+      this.rr(cx - r * 0.66, cy - r * 0.3 + paso * 0.3, r * 1.32, r * 1.3, r * 0.45); ctx.fill();
       ctx.fillStyle = '#f4f1e8';
-      this.rr(cx - r * 0.22, cy - r * 0.3 + paso * 0.3, r * 0.44, r * 1.0, r * 0.18); ctx.fill();
-      // cabeza
-      ctx.fillStyle = '#e8b990';
-      ctx.beginPath(); ctx.arc(cx, cy - r * 0.85 + paso * 0.3, r * 0.5, 0, 7); ctx.fill();
+      this.rr(cx - r * 0.2, cy - r * 0.3 + paso * 0.3, r * 0.4, r * 0.95, r * 0.16); ctx.fill();
+      this.ell(cx, cy - r * 0.82 + paso * 0.3, r * 0.48, r * 0.48, '#e8b990');
       ctx.fillStyle = '#241a12';
-      ctx.beginPath(); ctx.arc(cx, cy - r * 1.1 + paso * 0.3, r * 0.51, Math.PI, 0); ctx.fill();
-      // bandeja
-      ctx.fillStyle = '#cfd6e2';
-      ctx.beginPath(); ctx.ellipse(cx + r * 0.85, cy - r * 0.55 - paso, r * 0.42, r * 0.18, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy - r * 1.05 + paso * 0.3, r * 0.49, Math.PI, 0); ctx.fill();
+      this.ell(cx + r * 0.85, cy - r * 0.5 - paso, r * 0.42, r * 0.16, '#cfd6e2');
+      this.drawPlate(cx + r * 0.85, cy - r * 0.62 - paso, r * 0.5, false, null);
     },
 
     stepScenery(dt) {
@@ -256,41 +446,44 @@
       }
     },
 
-    // --------------------------------------------------------------- cocina
+    // ================================================================ COCINA
     drawFloor() {
       const ctx = this.ctx;
-      const x0 = Math.max(0, Math.floor(this.cam.x - this.cw / this.tw / 2) - 1);
-      const x1 = Math.min(this.map.w - 1, Math.ceil(this.cam.x + this.cw / this.tw / 2) + 1);
-      const y0 = Math.max(0, Math.floor(this.cam.y - this.chh / this.th / 2) - 1);
-      const y1 = Math.min(this.map.h - 1, Math.ceil(this.cam.y + this.chh / this.th / 2) + 1);
-      for (let y = y0; y <= y1; y++) {
-        for (let x = x0; x <= x1; x++) {
+      for (let y = 0; y < this.map.h; y++) {
+        for (let x = 0; x < this.map.w; x++) {
           const c = this.cellAt(x, y);
           if (!c || c.type === 'wall') continue;
           const px = this.sx(x), py = this.sy(y);
           ctx.fillStyle = (x + y) % 2 ? C.tileA : C.tileB;
           ctx.fillRect(px, py, this.tw + 0.6, this.th + 0.6);
-          ctx.strokeStyle = C.grout;
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = C.grout; ctx.lineWidth = 1;
           ctx.strokeRect(px + 0.5, py + 0.5, this.tw, this.th);
         }
       }
-      // alfombra
-      (this.map.deco || []).filter((d) => d.type === 'rug').forEach((d) => {
+      // sombra que proyectan los muebles sobre el suelo de debajo
+      ctx.fillStyle = 'rgba(40,26,10,.16)';
+      for (let y = 0; y < this.map.h - 1; y++) {
+        for (let x = 0; x < this.map.w; x++) {
+          const c = this.cellAt(x, y);
+          const abajo = this.cellAt(x, y + 1);
+          if (c && SOLID.has(c.type) && abajo && !SOLID.has(abajo.type)) {
+            ctx.fillRect(this.sx(x), this.sy(y + 1), this.tw + 0.5, this.th * 0.34);
+          }
+        }
+      }
+      const d = (this.map.deco || []).find((r) => r.type === 'rug');
+      if (d) {
         ctx.fillStyle = '#7a2036';
         this.rr(this.sx(d.x), this.sy(d.y), d.w * this.tw, d.h * this.th, 6); ctx.fill();
         ctx.strokeStyle = '#c8a24a'; ctx.lineWidth = 2;
         this.rr(this.sx(d.x) + 4, this.sy(d.y) + 4, d.w * this.tw - 8, d.h * this.th - 8, 4); ctx.stroke();
-      });
+      }
     },
 
-    /** Los muebles se pintan por filas para que los de delante tapen a los de atras. */
     drawRowBlocks(y) {
       for (let x = 0; x < this.map.w; x++) {
         const c = this.cellAt(x, y);
         if (!c || !SOLID.has(c.type)) continue;
-        const px = this.sx(x);
-        if (px < -this.tw * 2 || px > this.cw + this.tw * 2) continue;
         this.drawBlock(c);
       }
     },
@@ -301,83 +494,118 @@
       switch (c.type) {
         case 'wall':
           b = this.block(c.x, c.y, C.wallFace, C.wallTop, 3);
-          ctx.fillStyle = 'rgba(255,255,255,.06)';
+          ctx.fillStyle = 'rgba(255,255,255,.05)';
           ctx.fillRect(b.px + 2, b.py + 2, b.w - 4, 2);
+          ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1;
+          ctx.strokeRect(b.px + 0.5, b.py + 0.5, b.w - 1, b.h - 1);
           break;
 
         case 'counter':
           b = this.block(c.x, c.y, C.woodFace, C.woodTop, 5);
           ctx.strokeStyle = C.woodEdge; ctx.lineWidth = 2;
           this.rr(b.px + 3, b.py + 3, b.w - 6, b.h - 6, 4); ctx.stroke();
+          ctx.strokeStyle = C.woodGrain; ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(b.px + 6, b.py + b.h * 0.4); ctx.lineTo(b.px + b.w - 6, b.py + b.h * 0.4);
+          ctx.moveTo(b.px + 6, b.py + b.h * 0.66); ctx.lineTo(b.px + b.w - 6, b.py + b.h * 0.66);
+          ctx.stroke();
           break;
 
-        case 'board':
+        case 'board': {
           b = this.block(c.x, c.y, C.woodFace, C.woodTop, 5);
-          ctx.fillStyle = '#c7855a';
-          this.rr(b.px + s * 0.1, b.py + s * 0.08, s * 0.8, b.h - s * 0.14, 4); ctx.fill();
-          ctx.strokeStyle = '#a2673f'; ctx.lineWidth = 1.5;
-          for (let i = 1; i < 4; i++) {
+          ctx.fillStyle = '#d9a874';
+          this.rr(b.px + s * 0.09, b.py + s * 0.06, s * 0.82, b.h - s * 0.1, 5); ctx.fill();
+          ctx.fillStyle = 'rgba(120,74,20,.25)';
+          this.rr(b.px + s * 0.09, b.py + b.h - s * 0.1, s * 0.82, s * 0.05, 2); ctx.fill();
+          ctx.strokeStyle = '#b98450'; ctx.lineWidth = 1;
+          for (let i = 1; i <= 2; i++) {
             ctx.beginPath();
-            ctx.moveTo(b.px + s * 0.14, b.py + s * 0.08 + i * (b.h - s * 0.14) / 4);
-            ctx.lineTo(b.px + s * 0.86, b.py + s * 0.08 + i * (b.h - s * 0.14) / 4);
+            ctx.moveTo(b.px + s * 0.16, b.py + s * 0.06 + i * (b.h - s * 0.14) / 3);
+            ctx.lineTo(b.px + s * 0.84, b.py + s * 0.06 + i * (b.h - s * 0.14) / 3);
             ctx.stroke();
           }
           break;
+        }
 
         case 'crate': {
-          b = this.block(c.x, c.y, '#8a5a26', '#c1893f', 5);
-          ctx.strokeStyle = 'rgba(70,42,14,.55)'; ctx.lineWidth = 2;
-          this.rr(b.px + 4, b.py + 4, b.w - 8, b.h - 8, 3); ctx.stroke();
-          const meta = this.ing[c.ing];
-          ctx.fillStyle = meta.color;
-          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h * 0.46, s * 0.3, s * 0.22, 0, 0, 7); ctx.fill();
-          this.glyph(meta.emoji, b.px + b.w / 2, b.py + b.h * 0.44, s * 0.5);
+          b = this.block(c.x, c.y, '#7c4f1e', '#b5813a', 5);
+          // interior abierto con el ingrediente a la vista
+          ctx.fillStyle = '#5d3a14';
+          this.rr(b.px + 4, b.py + 4, b.w - 8, b.h - 8, 4); ctx.fill();
+          this.drawFood(c.ing, 'raw', b.px + b.w / 2, b.py + b.h / 2, s * 0.68);
+          ctx.strokeStyle = 'rgba(255,220,160,.4)'; ctx.lineWidth = 2;
+          this.rr(b.px + 2.5, b.py + 2.5, b.w - 5, b.h - 5, 4); ctx.stroke();
           break;
         }
 
-        case 'cooker':
+        case 'cooker': {
           b = this.block(c.x, c.y, C.steelFace, C.steelTop, 5);
-          ctx.fillStyle = '#3a4152';
-          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.32, s * 0.24, 0, 0, 7); ctx.fill();
-          ctx.strokeStyle = '#e2e8f5'; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.32, s * 0.24, 0, 0, 7); ctx.stroke();
+          // olla: cuerpo + borde metalico (el contenido lo pinta drawTileRow)
+          this.ell(b.px + b.w / 2, b.py + b.h / 2 + 2, s * 0.33, s * 0.24, '#2c3140');
+          this.ell(b.px + b.w / 2, b.py + b.h / 2, s * 0.33, s * 0.24, '#454c60');
+          this.ell(b.px + b.w / 2, b.py + b.h / 2, s * 0.27, s * 0.19, '#22262f');
+          ctx.strokeStyle = '#dfe5f2'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.33, s * 0.24, 0, 0, 7); ctx.stroke();
           break;
+        }
 
         case 'plates':
           b = this.block(c.x, c.y, C.woodFace, C.woodTop, 5);
           break;
 
-        case 'sink':
+        case 'sink': {
           b = this.block(c.x, c.y, '#5b6274', '#848da2', 5);
-          ctx.fillStyle = '#28404f';
+          ctx.fillStyle = '#25404f';
           this.rr(b.px + 4, b.py + 4, b.w - 8, b.h - 8, 5); ctx.fill();
-          ctx.fillStyle = '#63c8ec';
-          this.rr(b.px + 7, b.py + 7, b.w - 14, b.h - 14, 4); ctx.fill();
-          ctx.fillStyle = 'rgba(255,255,255,.5)';
-          this.rr(b.px + 10, b.py + 9, b.w * 0.3, 3, 2); ctx.fill();
+          ctx.fillStyle = '#5fc0e4';
+          this.rr(b.px + 6, b.py + 6, b.w - 12, b.h - 12, 4); ctx.fill();
+          // brillo del agua animado
+          ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5;
+          const ph = (this.t * 0.6) % 1;
+          ctx.beginPath();
+          ctx.arc(b.px + b.w * (0.3 + ph * 0.3), b.py + b.h * 0.5, s * 0.08, 0.3, 2.4);
+          ctx.stroke();
           break;
+        }
 
         case 'return':
           b = this.block(c.x, c.y, C.woodFace, '#b58c56', 5);
-          ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.28, s * 0.2, 0, 0, 7); ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.26, s * 0.18, 0, 0, 7); ctx.stroke();
+          ctx.setLineDash([]);
           break;
 
         case 'trash':
-          b = this.block(c.x, c.y, '#12141b', '#252a36', 5);
-          ctx.fillStyle = '#0a0c11';
-          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.3, s * 0.21, 0, 0, 7); ctx.fill();
+          b = this.block(c.x, c.y, '#101219', '#232836', 5);
+          this.ell(b.px + b.w / 2, b.py + b.h / 2 + 2, s * 0.3, s * 0.22, '#05060a');
+          this.ell(b.px + b.w / 2, b.py + b.h / 2, s * 0.3, s * 0.22, '#0d0f16');
           ctx.strokeStyle = '#4a5162'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.33, s * 0.24, 0, 0, 7); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(b.px + b.w / 2, b.py + b.h / 2, s * 0.32, s * 0.24, 0, 0, 7); ctx.stroke();
           break;
 
-        case 'serve':
+        case 'serve': {
           b = this.block(c.x, c.y, '#0b0d14', C.darkTop, 4);
-          ctx.fillStyle = '#f5f2e8';
-          this.glyph('\u{1F41F}', b.px + b.w / 2, b.py + b.h / 2, s * 0.5);
-          ctx.fillStyle = 'rgba(255,209,102,.85)';
-          this.rr(b.px + 2, b.py + b.h - 5, b.w - 4, 3, 1.5); ctx.fill();
+          // cinta transportadora animada hacia el comedor
+          ctx.save();
+          this.rr(b.px + 4, b.py + 4, b.w - 8, b.h - 8, 4);
+          ctx.clip();
+          ctx.fillStyle = '#171a26';
+          ctx.fillRect(b.px, b.py, b.w, b.h);
+          ctx.strokeStyle = 'rgba(255,209,102,.8)'; ctx.lineWidth = 3;
+          const off = (this.t * 26) % 14;
+          for (let yy = -14; yy < b.h + 14; yy += 14) {
+            ctx.beginPath();
+            ctx.moveTo(b.px + 6, b.py + yy + off);
+            ctx.lineTo(b.px + b.w / 2, b.py + yy + off + 6);
+            ctx.lineTo(b.px + b.w - 6, b.py + yy + off);
+            ctx.stroke();
+          }
+          ctx.restore();
+          ctx.fillStyle = 'rgba(255,209,102,.9)';
+          this.rr(b.px + 2, b.py + b.h - 4, b.w - 4, 3, 1.5); ctx.fill();
           break;
+        }
 
         default: break;
       }
@@ -387,22 +615,22 @@
       const d = (this.map.deco || []).find((x) => x.type === 'sign');
       if (!d) return;
       const ctx = this.ctx;
-      const x = this.sx(d.x), y = this.sy(d.y) - this.bh * 1.1;
+      const x = this.sx(d.x), y = this.sy(d.y) - this.bh * 1.15;
       const w = d.w * this.tw, h = d.h * this.th * 1.1;
       ctx.fillStyle = '#0a1420';
-      this.rr(x, y, w, h, 5); ctx.fill();
+      this.rr(x, y, w, h, 6); ctx.fill();
       ctx.save();
       ctx.strokeStyle = '#3ad9ff'; ctx.lineWidth = 2;
-      ctx.shadowColor = '#3ad9ff'; ctx.shadowBlur = 12;
-      this.rr(x + 2, y + 2, w - 4, h - 4, 4); ctx.stroke();
+      ctx.shadowColor = '#3ad9ff'; ctx.shadowBlur = 14;
+      this.rr(x + 2, y + 2, w - 4, h - 4, 5); ctx.stroke();
       ctx.fillStyle = '#c4f3ff';
-      ctx.font = `700 ${Math.max(9, h * 0.5)}px ui-monospace,Consolas,monospace`;
+      ctx.font = `700 ${Math.max(9, h * 0.48)}px ui-monospace,Consolas,monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(d.text, x + w / 2, y + h / 2);
       ctx.restore();
     },
 
-    // ---------------------------------------------------------------- frame
+    // ================================================================= FRAME
     draw(view, dt) {
       const ctx = this.ctx;
       this.t += dt;
@@ -418,15 +646,12 @@
       const tiles = (view && view.tiles) || {};
       this.overlays.length = 0;
 
-      if (view) { this.drawGround(view.gnd); this.drawAim(view); this.drawTarget(view); }
+      if (view) { this.drawGround(view.gnd); this.drawAim(view); this.drawTarget(view, tiles); }
 
-      // pintado por filas: muebles de la fila, luego cocineros que pisan esa fila
       for (let y = 0; y < this.map.h; y++) {
         this.drawRowBlocks(y);
         this.drawTileRow(y, tiles);
-        for (const ch of chefs) {
-          if (Math.floor(ch.y) === y) this.drawChef(ch);
-        }
+        for (const ch of chefs) if (Math.floor(ch.y) === y) this.drawChef(ch);
       }
 
       this.drawSign();
@@ -452,133 +677,50 @@
         const st = tiles[key];
         const px = this.sx(c.x), py = this.sy(c.y) - this.bh;
         const cx = px + this.tw / 2, cy = py + this.th / 2;
-        if (px < -s * 2 || px > this.cw + s * 2) continue;
 
         const barAt = (p, col) => this.overlays.push({ kind: 'bar', x: px + s * 0.12, y: py - 9, w: s * 0.76, h: 6, p, col });
-        const iconAt = (text, col) => this.overlays.push({ kind: 'icon', text, col, x: cx, y: py - 10, size: s * 0.42 });
+        const iconAt = (text, col) => this.overlays.push({ kind: 'icon', text, col, x: cx, y: py - 12, size: s * 0.42 });
 
         if (c.type === 'counter' || c.type === 'board') {
-          if (st.i) this.drawItem(st.i, cx, cy - s * 0.06, s * 0.8, st.p);
+          if (st.i) this.drawItem(st.i, cx, cy - s * 0.04, s * 0.78, st.p);
           if (st.p > 0) barAt(st.p, '#ffd166');
         } else if (c.type === 'cooker') {
           const pot = st.pot;
-          const col = pot.s === 'burnt' ? '#3d2b1d' : pot.s === 'cooked' ? '#fffdf4' : '#efe9d8';
-          ctx.fillStyle = col;
-          ctx.beginPath(); ctx.ellipse(cx, cy, s * 0.24, s * 0.17, 0, 0, 7); ctx.fill();
           if (pot.s === 'cooking') {
+            this.ell(cx, cy, s * 0.24, s * 0.17, '#efe9d8');
             barAt(pot.p, '#ff9f43');
-            // vapor
-            ctx.fillStyle = 'rgba(255,255,255,.22)';
+            ctx.fillStyle = 'rgba(255,255,255,.3)';
             for (let k = 0; k < 3; k++) {
               const ph = (this.t * 0.8 + k * 0.33) % 1;
-              ctx.beginPath();
-              ctx.arc(cx + Math.sin((this.t + k) * 2) * s * 0.08, cy - ph * s * 0.7, s * 0.07 * (1 - ph * 0.5), 0, 7);
-              ctx.fill();
+              this.ell(cx + Math.sin((this.t + k) * 2) * s * 0.09, cy - ph * s * 0.75, s * 0.07 * (1 - ph * 0.5), s * 0.07 * (1 - ph * 0.5), `rgba(255,255,255,${0.35 * (1 - ph)})`);
             }
           } else if (pot.s === 'cooked') {
+            this.drawFood('rice', 'cooked', cx, cy, s * 0.62);
             barAt(pot.p, '#ff5f5a');
             if (Math.sin(this.t * 8) > 0) iconAt('✔', '#49d78a');
           } else if (pot.s === 'burnt') {
-            iconAt('\u{1F525}', '#ff5f5a');
+            this.drawFood('rice', 'burnt', cx, cy, s * 0.62);
+            iconAt('🔥', '#ff5f5a');
           }
         } else if (c.type === 'sink') {
-          if (st.d) this.drawPlateStack(cx - s * 0.15, cy, s * 0.5, st.d, true);
-          if (st.c) this.drawPlateStack(cx + s * 0.17, cy, s * 0.5, st.c, false);
-          if (st.p > 0) barAt(st.p, '#63c8ec');
+          if (st.d) this.drawPlateStack(cx - s * 0.15, cy, s * 0.46, st.d, true);
+          if (st.c) this.drawPlateStack(cx + s * 0.17, cy, s * 0.46, st.c, false);
+          if (st.p > 0) barAt(st.p, '#5fc0e4');
         } else if (c.type === 'return') {
-          if (st.d) this.drawPlateStack(cx, cy, s * 0.62, st.d, true);
+          if (st.d) this.drawPlateStack(cx, cy, s * 0.56, st.d, true);
         } else if (c.type === 'plates') {
-          if (st.n > 0) this.drawPlateStack(cx, cy, s * 0.68, st.n, false);
-          else { ctx.fillStyle = '#8a6a3a'; this.glyph('∅', cx, cy, s * 0.45); }
+          if (st.n > 0) this.drawPlateStack(cx, cy, s * 0.62, st.n, false);
         }
-      }
-    },
-
-    drawPlateStack(cx, cy, size, n, dirty) {
-      const ctx = this.ctx;
-      const k = Math.min(n, 4);
-      for (let i = 0; i < k; i++) {
-        const y = cy - i * (size * 0.10);
-        ctx.fillStyle = dirty ? '#9c9078' : '#f6f4ee';
-        ctx.beginPath(); ctx.ellipse(cx, y, size * 0.5, size * 0.28, 0, 0, 7); ctx.fill();
-        ctx.strokeStyle = dirty ? '#6f6650' : '#cdd1d9'; ctx.lineWidth = 1.2; ctx.stroke();
-      }
-      if (n > 4) {
-        ctx.fillStyle = '#20232e';
-        ctx.font = `700 ${size * 0.34}px ui-sans-serif,system-ui`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('x' + n, cx, cy - k * size * 0.1 - size * 0.16);
-      }
-    },
-
-    /**
-     * Un ingrediente. Al cortarlo no cambia de icono: se parte en trozos, que
-     * es la forma de que se vea de un golpe si ya esta listo.
-     */
-    drawItem(item, cx, cy, size, prog) {
-      const ctx = this.ctx;
-      if (!item) return;
-
-      if (item.k === 'p') {
-        ctx.fillStyle = item.d ? '#9c9078' : '#f6f4ee';
-        ctx.beginPath(); ctx.ellipse(cx, cy, size * 0.5, size * 0.3, 0, 0, 7); ctx.fill();
-        ctx.strokeStyle = item.d ? '#6f6650' : '#c8ccd4'; ctx.lineWidth = 1.4; ctx.stroke();
-        if (item.d) { this.glyph('\u{1F4A6}', cx, cy, size * 0.36); return; }
-        const n = item.c.length;
-        item.c.forEach((t, i) => {
-          const a = n === 1 ? -Math.PI / 2 : (i / n) * Math.PI * 2 - Math.PI / 2;
-          const r = n === 1 ? 0 : size * 0.19;
-          this.glyph(this.ing[t].emoji, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.6, size * (n > 2 ? 0.36 : 0.42));
-        });
-        return;
-      }
-
-      const meta = this.ing[item.t];
-      const sz = size * 0.62;
-
-      if (item.s === 'burnt') {
-        ctx.fillStyle = '#241a12';
-        ctx.beginPath(); ctx.ellipse(cx, cy, sz * 0.45, sz * 0.32, 0, 0, 7); ctx.fill();
-        this.glyph('\u{1F525}', cx, cy - sz * 0.1, sz * 0.6);
-        return;
-      }
-
-      if (item.s === 'chopped') {
-        // tres trozos separados
-        for (let i = 0; i < 3; i++) {
-          const dx = (i - 1) * sz * 0.3;
-          this.glyph(meta.emoji, cx + dx, cy + (i === 1 ? -sz * 0.06 : 0), sz * 0.46);
-        }
-        return;
-      }
-
-      if (item.s === 'cooked') {
-        ctx.fillStyle = 'rgba(255,240,200,.3)';
-        ctx.beginPath(); ctx.ellipse(cx, cy, sz * 0.5, sz * 0.35, 0, 0, 7); ctx.fill();
-        this.glyph(meta.emoji, cx, cy, sz);
-        return;
-      }
-
-      // crudo: si esta a medio cortar, se va separando
-      const p = prog || 0;
-      if (p > 0) {
-        const sep = sz * 0.34 * p;
-        this.glyph(meta.emoji, cx - sep, cy, sz * (1 - p * 0.22));
-        this.glyph(meta.emoji, cx + sep, cy, sz * (1 - p * 0.22));
-      } else {
-        this.glyph(meta.emoji, cx, cy, sz);
       }
     },
 
     drawGround(list) {
       if (!list || !list.length) return;
-      const ctx = this.ctx, s = this.tw;
+      const s = this.tw;
       for (const g of list) {
         const px = this.sx(g.x), py = this.sy(g.y);
-        this.shadow(px, py, s * 0.22, 0.25);
-        ctx.save(); ctx.globalAlpha = 0.9;
-        this.drawItem(g.i, px, py - s * 0.06, s * 0.62, 0);
-        ctx.restore();
+        this.shadow(px, py + s * 0.08, s * 0.2, 0.28);
+        this.drawItem(g.i, px, py - s * 0.04, s * 0.56, 0);
       }
     },
 
@@ -588,11 +730,11 @@
       for (const f of list) {
         const px = this.sx(f.x), py = this.sy(f.y);
         const h = Math.sin(Math.min(1, f.p) * Math.PI) * s * 0.9;
-        this.shadow(px, py, s * 0.18, 0.3);
+        this.shadow(px, py + s * 0.06, s * 0.16, 0.3);
         ctx.save();
         ctx.translate(px, py - h);
         ctx.rotate(this.t * 8);
-        this.drawItem(f.i, 0, 0, s * 0.78, 0);
+        this.drawItem(f.i, 0, 0, s * 0.7, 0);
         ctx.restore();
       }
     },
@@ -621,161 +763,194 @@
       ctx.lineTo(this.sx(px), this.sy(py));
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.beginPath(); ctx.ellipse(this.sx(px), this.sy(py), this.tw * 0.24, this.th * 0.24, 0, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(this.sx(px), this.sy(py), this.tw * 0.22, this.th * 0.22, 0, 0, 7); ctx.stroke();
       ctx.restore();
     },
 
-    drawTarget(view) {
+    /** Resalta la casilla activa: verde si el boton hara algo, blanco si no. */
+    drawTarget(view, tiles) {
       const me = (view.chefs || []).find((c) => c.id === this.meId);
-      if (!me) return;
-      const d = 0.34 + 0.45;
-      const tx = Math.floor(me.x + me.fx * d), ty = Math.floor(me.y + me.fy * d);
-      const c = this.cellAt(tx, ty);
-      if (!c || !SOLID.has(c.type) || c.type === 'wall') return;
+      if (!me || !this.map) return;
+      const f = this.frontTile(me);
+      if (!f) return;
+      const c = this.cellAt(f.x, f.y);
+      const st = tiles[f.y * this.map.w + f.x];
+      const h = me.h;
+      let util = false;
+      switch (c.type) {
+        case 'crate': util = !h; break;
+        case 'board': util = h ? true : !!(st && st.i); break;
+        case 'counter': util = h ? true : !!(st && st.i); break;
+        case 'cooker':
+          util = h ? (h.k === 'i' && h.t === 'rice' && h.s === 'raw' && !st)
+                   : !!(st && st.pot && st.pot.s !== 'cooking'); break;
+        case 'plates': util = !h && (!st || st.n > 0); break;
+        case 'sink': util = h ? (h.k === 'p' && !!h.d) : !!(st && (st.c > 0 || st.d > 0)); break;
+        case 'return': util = h ? (h.k === 'p' && !!h.d) : !!(st && st.d > 0); break;
+        case 'trash': util = !!h; break;
+        case 'serve': util = !!(h && h.k === 'p' && !h.d && h.c.length); break;
+        default: util = false;
+      }
       const ctx = this.ctx;
       ctx.save();
-      ctx.strokeStyle = '#ffd166';
+      ctx.strokeStyle = util ? '#5ce88a' : 'rgba(255,255,255,.75)';
       ctx.lineWidth = 3;
-      ctx.globalAlpha = 0.55 + Math.sin(this.t * 7) * 0.25;
-      this.rr(this.sx(tx) + 2, this.sy(ty) - this.bh + 2, this.tw - 4, this.th - 4, 5);
+      ctx.globalAlpha = 0.6 + Math.sin(this.t * 7) * 0.25;
+      this.rr(this.sx(f.x) + 2, this.sy(f.y) - this.bh + 2, this.tw - 4, this.th - 4, 6);
       ctx.stroke();
+      if (util) {
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = '#5ce88a';
+        this.rr(this.sx(f.x) + 2, this.sy(f.y) - this.bh + 2, this.tw - 4, this.th - 4, 6);
+        ctx.fill();
+      }
       ctx.restore();
     },
 
-    // ------------------------------------------------------------ cocinero
+    // ================================================================ CHEF
     drawChef(ch) {
       const ctx = this.ctx;
       const s = this.tw;
       const px = this.sx(ch.x), py = this.sy(ch.y);
       const col = chefColor(this.myTeam, ch.s);
-      const r = s * 0.3;
+      const r = s * 0.36;
       const mirando = ch.fy < -0.35 ? 'arriba' : ch.fy > 0.35 ? 'abajo' : 'lado';
       const flip = ch.fx < 0 ? -1 : 1;
       const andando = (ch.v || 0) > 0.4;
       const paso = andando ? Math.sin(this.t * 13) : 0;
-      const bob = Math.abs(paso) * r * 0.13;
+      const bob = Math.abs(paso) * r * 0.12;
 
-      this.shadow(px, py + r * 0.34, r * 0.95, 0.34);
+      this.shadow(px, py + r * 0.32, r * 0.92, 0.34);
 
-      if (ch.d) {  // estela del esprint
-        ctx.strokeStyle = 'rgba(255,255,255,.35)';
+      if (ch.d) {
+        ctx.strokeStyle = 'rgba(255,255,255,.4)';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(px - ch.fx * r * 1.2, py - ch.fy * r * 0.7 - r, r * 0.9, 0, 7);
+        ctx.arc(px - ch.fx * r * 1.2, py - ch.fy * r * 0.7 - r, r * 0.85, 0, 7);
         ctx.stroke();
       }
 
       const baseY = py - r * 0.5 - bob;
 
-      // piernas
+      // piernas + zapatos
       ctx.fillStyle = '#2b3040';
-      ctx.fillRect(px - r * 0.42, baseY + r * 0.42, r * 0.34, r * 0.55 + paso * r * 0.16);
-      ctx.fillRect(px + r * 0.08, baseY + r * 0.42, r * 0.34, r * 0.55 - paso * r * 0.16);
-      ctx.fillStyle = '#1a1d27';
-      ctx.fillRect(px - r * 0.46, baseY + r * 0.93 + paso * r * 0.16, r * 0.42, r * 0.16);
-      ctx.fillRect(px + r * 0.04, baseY + r * 0.93 - paso * r * 0.16, r * 0.42, r * 0.16);
+      ctx.fillRect(px - r * 0.4, baseY + r * 0.4, r * 0.32, r * 0.52 + paso * r * 0.15);
+      ctx.fillRect(px + r * 0.08, baseY + r * 0.4, r * 0.32, r * 0.52 - paso * r * 0.15);
+      ctx.fillStyle = '#15171f';
+      this.rr(px - r * 0.46, baseY + r * 0.88 + paso * r * 0.15, r * 0.44, r * 0.18, r * 0.08); ctx.fill();
+      this.rr(px + r * 0.02, baseY + r * 0.88 - paso * r * 0.15, r * 0.44, r * 0.18, r * 0.08); ctx.fill();
 
-      // cuerpo: chaquetilla blanca con delantal del color del equipo
-      ctx.fillStyle = '#f7f5ee';
-      this.rr(px - r * 0.72, baseY - r * 0.5, r * 1.44, r * 1.05, r * 0.34); ctx.fill();
+      // cuerpo: chaquetilla + delantal del equipo
+      ctx.fillStyle = '#f8f6ef';
+      this.rr(px - r * 0.74, baseY - r * 0.52, r * 1.48, r * 1.06, r * 0.36); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.07)';
+      this.rr(px - r * 0.74, baseY + r * 0.3, r * 1.48, r * 0.24, r * 0.12); ctx.fill();
       ctx.fillStyle = col;
-      this.rr(px - r * 0.42, baseY - r * 0.16, r * 0.84, r * 0.72, r * 0.16); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,.12)';
-      this.rr(px - r * 0.72, baseY + r * 0.36, r * 1.44, r * 0.2, r * 0.1); ctx.fill();
+      this.rr(px - r * 0.44, baseY - r * 0.14, r * 0.88, r * 0.68, r * 0.16); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      this.ell(px - r * 0.18, baseY - r * 0.02, r * 0.045, r * 0.045, 'rgba(255,255,255,.6)');
+      this.ell(px + r * 0.18, baseY - r * 0.02, r * 0.045, r * 0.045, 'rgba(255,255,255,.6)');
 
       // brazos
+      const braz = ch.h ? 0 : paso * r * 0.2;
       ctx.fillStyle = '#f2efe6';
-      const braz = paso * r * 0.2;
-      ctx.beginPath(); ctx.ellipse(px - r * 0.78, baseY - r * 0.06 + braz, r * 0.2, r * 0.3, 0, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(px + r * 0.78, baseY - r * 0.06 - braz, r * 0.2, r * 0.3, 0, 0, 7); ctx.fill();
+      if (ch.h) {
+        // brazos hacia delante sujetando el objeto
+        this.ell(px - r * 0.55, baseY + r * 0.06, r * 0.19, r * 0.26, '#f2efe6');
+        this.ell(px + r * 0.55, baseY + r * 0.06, r * 0.19, r * 0.26, '#f2efe6');
+      } else {
+        this.ell(px - r * 0.8, baseY - r * 0.04 + braz, r * 0.19, r * 0.28, '#f2efe6');
+        this.ell(px + r * 0.8, baseY - r * 0.04 - braz, r * 0.19, r * 0.28, '#f2efe6');
+      }
 
       // cabeza
-      const hy = baseY - r * 0.92;
-      ctx.fillStyle = '#f0c9a3';
-      ctx.beginPath(); ctx.arc(px, hy, r * 0.52, 0, 7); ctx.fill();
-
-      // gorro de cocinero
+      const hy = baseY - r * 0.94;
+      this.ell(px, hy, r * 0.52, r * 0.52, '#f0c9a3');
+      // gorro
       ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.ellipse(px, hy - r * 0.62, r * 0.62, r * 0.42, 0, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(px - r * 0.32, hy - r * 0.52, r * 0.3, r * 0.28, 0, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(px + r * 0.32, hy - r * 0.52, r * 0.3, r * 0.28, 0, 0, 7); ctx.fill();
+      this.ell(px, hy - r * 0.6, r * 0.6, r * 0.4, '#ffffff');
+      this.ell(px - r * 0.3, hy - r * 0.5, r * 0.28, r * 0.26, '#ffffff');
+      this.ell(px + r * 0.3, hy - r * 0.5, r * 0.28, r * 0.26, '#ffffff');
       ctx.fillStyle = '#eceae2';
-      this.rr(px - r * 0.56, hy - r * 0.4, r * 1.12, r * 0.3, r * 0.1); ctx.fill();
+      this.rr(px - r * 0.55, hy - r * 0.38, r * 1.1, r * 0.28, r * 0.1); ctx.fill();
       ctx.fillStyle = col;
-      this.rr(px - r * 0.56, hy - r * 0.18, r * 1.12, r * 0.13, r * 0.06); ctx.fill();
+      this.rr(px - r * 0.55, hy - r * 0.16, r * 1.1, r * 0.12, r * 0.06); ctx.fill();
 
-      // cara segun hacia donde mira
+      // cara
       if (mirando !== 'arriba') {
-        ctx.fillStyle = '#2a2019';
-        const ex = mirando === 'lado' ? r * 0.14 * flip : 0;
-        ctx.beginPath(); ctx.ellipse(px - r * 0.19 + ex, hy + r * 0.02, r * 0.075, r * 0.1, 0, 0, 7); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(px + r * 0.19 + ex, hy + r * 0.02, r * 0.075, r * 0.1, 0, 0, 7); ctx.fill();
+        const ex = mirando === 'lado' ? r * 0.15 * flip : 0;
+        this.ell(px - r * 0.18 + ex, hy + r * 0.04, r * 0.07, r * 0.1, '#2a2019');
+        this.ell(px + r * 0.18 + ex, hy + r * 0.04, r * 0.07, r * 0.1, '#2a2019');
+        this.ell(px - r * 0.3 + ex, hy + r * 0.16, r * 0.08, r * 0.05, 'rgba(240,130,110,.4)');
+        this.ell(px + r * 0.3 + ex, hy + r * 0.16, r * 0.08, r * 0.05, 'rgba(240,130,110,.4)');
         ctx.strokeStyle = '#b9846a'; ctx.lineWidth = Math.max(1, r * 0.06); ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(px + ex * 0.6, hy + r * 0.2, r * 0.14, 0.25, Math.PI - 0.25); ctx.stroke();
+        ctx.beginPath(); ctx.arc(px + ex * 0.6, hy + r * 0.2, r * 0.13, 0.3, Math.PI - 0.3); ctx.stroke();
       }
 
-      // objeto en las manos, delante del pecho
+      // objeto en las manos: con fondo blanco para que se vea SIEMPRE
       if (ch.h) {
-        const iy = baseY - r * 0.1;
-        this.shadow(px, baseY + r * 0.3, r * 0.4, 0.15);
-        this.drawItem(ch.h, px, iy, s * 0.62, 0);
+        const iy = baseY + r * 0.02 + Math.sin(this.t * 3) * r * 0.04;
+        this.ell(px, iy, r * 0.52, r * 0.42, 'rgba(255,255,255,.94)');
+        ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(px, iy, r * 0.52, r * 0.42, 0, 0, 7); ctx.stroke();
+        this.drawItem(ch.h, px, iy, s * 0.6, 0);
       }
 
-      // cuchillo cuando esta cortando
+      // cuchillo cuando corta
       if (ch.c) {
+        const osc = Math.sin(this.t * 26) * 0.7;
         ctx.save();
-        ctx.translate(px + r * 0.75 * (flip || 1), baseY - r * 0.35);
-        ctx.rotate(-0.5 * flip);
-        ctx.fillStyle = '#d9dee9';
-        ctx.fillRect(-r * 0.06, -r * 0.5, r * 0.12, r * 0.55);
+        ctx.translate(px + r * 0.8 * flip, baseY - r * 0.4);
+        ctx.rotate((-0.9 + osc) * flip);
+        ctx.fillStyle = '#e7ebf5';
+        this.rr(-r * 0.07, -r * 0.62, r * 0.14, r * 0.62, r * 0.05); ctx.fill();
         ctx.fillStyle = '#5a3b23';
-        ctx.fillRect(-r * 0.08, r * 0.03, r * 0.16, r * 0.22);
+        this.rr(-r * 0.09, 0, r * 0.18, r * 0.26, r * 0.05); ctx.fill();
         ctx.restore();
       }
 
       // nombre
       const label = ch.b ? '\u{1F916} ' + ch.n : ch.n;
-      ctx.font = `700 ${Math.max(9, s * 0.24)}px ui-sans-serif,system-ui`;
+      ctx.font = `700 ${Math.max(9, s * 0.22)}px ui-sans-serif,system-ui`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(0,0,0,.65)';
-      ctx.strokeText(label, px, py + r * 0.95);
+      ctx.strokeText(label, px, py + r * 0.92);
       ctx.fillStyle = ch.id === this.meId ? '#ffd166' : ch.b ? '#c3c9d8' : '#f2f0e8';
-      ctx.fillText(label, px, py + r * 0.95);
+      ctx.fillText(label, px, py + r * 0.92);
 
-      // flecha bajo tu propio cocinero
       if (ch.id === this.meId) {
         ctx.fillStyle = 'rgba(255,209,102,.95)';
-        const ay = py - r * 2.7 + Math.sin(this.t * 4) * r * 0.12;
+        const ay = py - r * 2.9 + Math.sin(this.t * 4) * r * 0.12;
         ctx.beginPath();
-        ctx.moveTo(px, ay + r * 0.34); ctx.lineTo(px - r * 0.26, ay); ctx.lineTo(px + r * 0.26, ay);
+        ctx.moveTo(px, ay + r * 0.32); ctx.lineTo(px - r * 0.24, ay); ctx.lineTo(px + r * 0.24, ay);
         ctx.closePath(); ctx.fill();
       }
     },
 
     bar(x, y, w, h, p, col) {
       const ctx = this.ctx;
-      ctx.fillStyle = 'rgba(10,8,4,.6)';
-      this.rr(x, y, w, h, h / 2); ctx.fill();
+      ctx.fillStyle = 'rgba(10,8,4,.65)';
+      this.rr(x - 1, y - 1, w + 2, h + 2, (h + 2) / 2); ctx.fill();
       ctx.fillStyle = col;
-      this.rr(x + 1.5, y + 1.5, Math.max(0, (w - 3) * Math.min(1, p)), h - 3, (h - 3) / 2); ctx.fill();
+      this.rr(x + 1, y + 1, Math.max(0, (w - 2) * Math.min(1, p)), h - 2, (h - 2) / 2); ctx.fill();
     },
 
     addEvents(evts) {
       const texts = {
-        serve: null, bad: null, trash: '\u{1F5D1}', chop: '✂', wash: '✨',
-        ready: '\u{1F514}', burn: '\u{1F525}', add: '+', hint: '?', expire: null,
-        throw: '\u{1F4A8}', catch: '\u{1F44F}', land: '⬇', tap: null,
+        serve: null, bad: null, trash: '🗑', chop: '✓', wash: '✨',
+        ready: '🔔', burn: '🔥', add: '+', hint: '?', expire: null,
+        throw: '💨', catch: '👏', land: '⬇', tap: null,
       };
       (evts || []).forEach((e) => {
         if (e.e === 'expire') return;
-        if (e.e === 'tap') {                       // chispa corta de cada tajo
-          this.pops.push({ x: e.x, y: e.y, life: 0.45, text: '✦', col: '#ffe6a0', small: true });
+        if (e.e === 'tap') {
+          this.pops.push({ x: e.x + (Math.random() - 0.5) * 0.3, y: e.y, life: 0.5, text: '✦', col: '#ffe6a0', small: true });
           return;
         }
         this.pops.push({
           x: e.x, y: e.y, life: 1,
           text: e.s || texts[e.e] || '',
-          col: e.e === 'serve' || e.e === 'catch' ? '#49d78a' : e.e === 'bad' ? '#ff6b6b' : '#ffffff',
+          col: e.e === 'serve' || e.e === 'catch' || e.e === 'chop' ? '#49d78a' : e.e === 'bad' ? '#ff6b6b' : '#ffffff',
         });
       });
     },
@@ -784,12 +959,12 @@
       const ctx = this.ctx, s = this.tw;
       for (let i = this.pops.length - 1; i >= 0; i--) {
         const p = this.pops[i];
-        p.life -= dt * (p.small ? 2.4 : 1.1);
+        p.life -= dt * (p.small ? 2.2 : 1.1);
         if (p.life <= 0) { this.pops.splice(i, 1); continue; }
         const a = Math.min(1, p.life * 1.6);
         const px = this.sx(p.x), py = this.sy(p.y) - this.bh - (1 - p.life) * s * 0.7;
         ctx.globalAlpha = a;
-        ctx.font = `800 ${Math.max(10, s * (p.small ? 0.3 : 0.38))}px ui-sans-serif,system-ui`;
+        ctx.font = `800 ${Math.max(10, s * (p.small ? 0.34 : 0.4))}px ui-sans-serif,system-ui`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(0,0,0,.65)';
         ctx.strokeText(p.text, px, py);
@@ -800,11 +975,6 @@
     },
   };
 
-  /**
-   * Comedor alrededor de la cocina. Con la cocina entera en pantalla apenas
-   * queda margen, asi que las mesas se pegan a los muros para que asomen por
-   * los bordes: se lee como que el local sigue mas alla.
-   */
   function buildScenery(map) {
     const mesas = [];
     const cols = ['#c8564b', '#4b7ec8', '#48a06a', '#c8a24a', '#8a5fc0', '#d0793f'];
@@ -822,7 +992,6 @@
         colores: Array.from({ length: n }, (_, k) => cols[(i + k) % cols.length]),
       });
     });
-
     const camareros = [
       { puntos: [{ x: -0.5, y: 1 }, { x: -0.5, y: map.h - 1 }], i: 0, t: 0, vel: 0.14, seed: 0.4 },
       { puntos: [{ x: map.w + 0.5, y: map.h - 1 }, { x: map.w + 0.5, y: 1 }], i: 0, t: 0.5, vel: 0.11, seed: 2.1 },

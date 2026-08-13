@@ -176,6 +176,61 @@
     $('#btn-back').addEventListener('click', () => UI.show('lobby'));
   }
 
+  /**
+   * El boton de accion dice lo que va a hacer segun lo que tengas delante:
+   * COGER, DEJAR, CORTA, FREGAR, SERVIR... Es la guia de juego integrada en
+   * el propio control, sin tutorial.
+   */
+  function updateActionBtn() {
+    if (UI.screen !== 'game') return;
+    const el = $('#btn-a');
+    if (!el) return;
+    const ic = el.querySelector('.ic');
+    const lb = el.querySelector('.lb');
+    let icon = '✋', label = 'ACCION';
+
+    const me = G.me;
+    if (me && Render.map && G.latest) {
+      const f = Render.frontTile(me);
+      const cell = f && Render.cellAt(f.x, f.y);
+      const st = f && G.latest.tiles ? G.latest.tiles[f.y * Render.map.w + f.x] : null;
+      const h = G.holding;
+      if (cell) {
+        switch (cell.type) {
+          case 'crate': if (!h) { icon = '✋'; label = 'COGER'; } break;
+          case 'board':
+            if (!h && st && st.i && st.i.s === 'raw') { icon = '\u{1F52A}'; label = 'CORTA'; }
+            else if (!h && st && st.i) { icon = '✋'; label = 'COGER'; }
+            else if (h) { icon = '⬇'; label = 'DEJAR'; }
+            break;
+          case 'counter':
+            if (h) { icon = '⬇'; label = h.k === 'i' && st && st.i && st.i.k === 'p' ? 'EMPLATA' : 'DEJAR'; }
+            else if (st && st.i) { icon = '✋'; label = 'COGER'; }
+            break;
+          case 'cooker':
+            if (h && h.k === 'i' && h.t === 'rice' && h.s === 'raw' && !st) { icon = '\u{1F35A}'; label = 'COCER'; }
+            else if (!h && st && st.pot && st.pot.s !== 'cooking') { icon = '✋'; label = 'SACAR'; }
+            break;
+          case 'plates': if (!h && (!st || st.n > 0)) { icon = '\u{1F37D}'; label = 'PLATO'; } break;
+          case 'sink':
+            if (h && h.k === 'p' && h.d) { icon = '⬇'; label = 'DEJAR'; }
+            else if (!h && st && st.c > 0) { icon = '✋'; label = 'COGER'; }
+            else if (!h && st && st.d > 0) { icon = '\u{1F9FD}'; label = 'MANTEN'; }
+            break;
+          case 'return':
+            if (!h && st && st.d > 0) { icon = '✋'; label = 'COGER'; }
+            else if (h && h.k === 'p' && h.d) { icon = '⬇'; label = 'DEJAR'; }
+            break;
+          case 'trash': if (h) { icon = '\u{1F5D1}'; label = 'TIRAR'; } break;
+          case 'serve': if (h && h.k === 'p' && !h.d && h.c.length) { icon = '\u{1F6CE}'; label = 'SERVIR'; } break;
+          default: break;
+        }
+      } else if (G.holding) { icon = '✋'; label = 'ACCION'; }
+    }
+    if (ic.textContent !== icon) ic.textContent = icon;
+    if (lb.textContent !== label) lb.textContent = label;
+  }
+
   function updateMicBtn() {
     const el = $('#btn-ptt');
     if (!el) return;
@@ -346,6 +401,7 @@
     // entra en la simulacion.
     setInterval(() => { if (UI.screen === 'game' && G.playing) Net.sendInput(Input.snapshot()); }, 33);
     setInterval(updateMicBtn, 1000);
+    setInterval(updateActionBtn, 140);
 
     window.addEventListener('resize', () => { UI.checkOrientation(); Render.resize(); });
     window.addEventListener('orientationchange', () => setTimeout(() => { UI.checkOrientation(); Render.resize(); }, 300));

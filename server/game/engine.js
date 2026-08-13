@@ -119,9 +119,28 @@ class Engine {
     }
     return false;
   }
+  /**
+   * Casilla sobre la que actua el boton. Primero la que tienes exactamente
+   * delante; si esa no es interactiva (pasillo, pared), se tolera la casilla
+   * interactiva vecina mas alineada con la mirada. Sin esto, pararse junto a
+   * una encimera mirando "casi" hacia ella hacia que el boton no respondiera,
+   * y en el movil se sentia como que no se podia dejar nada en las mesas.
+   */
   frontOf(ch) {
-    const d = CHEF.radius + 0.45;
-    return { x: Math.floor(ch.x + ch.fx * d), y: Math.floor(ch.y + ch.fy * d) };
+    const d = CHEF.radius + 0.5;
+    const ex = Math.floor(ch.x + ch.fx * d), ey = Math.floor(ch.y + ch.fy * d);
+    const exact = this.cellAt(ex, ey);
+    if (exact && exact.interactive) return { x: ex, y: ey };
+    const cx = Math.floor(ch.x), cy = Math.floor(ch.y);
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+      .map(([dx, dy]) => ({ dx, dy, dot: dx * ch.fx + dy * ch.fy }))
+      .filter((o) => o.dot > 0.3)
+      .sort((a, b) => b.dot - a.dot);
+    for (const o of dirs) {
+      const c = this.cellAt(cx + o.dx, cy + o.dy);
+      if (c && c.interactive) return { x: cx + o.dx, y: cy + o.dy };
+    }
+    return { x: ex, y: ey };
   }
 
   /** Casillas de suelo pegadas a una casilla interactiva (desde donde se puede usar). */
