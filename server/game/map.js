@@ -11,22 +11,26 @@
  N/R/P/G/S  cajas de nori / arroz / pepino / gamba / salmon
 */
 /*
- Cocina compacta: 14x9. El tamano importa. Con el mapa antiguo (22x13) era
- imposible ver toda la cocina y a la vez tener casillas grandes en un movil:
- no cabian. Al reducirla, todo entra en pantalla con casillas mas del doble
- de grandes, se corre menos y hay mas roce entre companeros, que es de donde
- sale la gracia del juego.
+ Cocina 18x11, con la distribucion del mapa de referencia: tablas de cortar
+ arriba a la izquierda, arroceras bajo el cartel de neon, entrega a la
+ derecha, cajas de ingredientes en la columna izquierda, isla central
+ alargada y fregadero abajo. En un movil apaisado entra entera con casillas
+ de ~43 px: punto medio entre la 22x13 original (casillas diminutas) y la
+ 14x9 (objetos enormes y apretados). Sin pasillos de una sola casilla donde
+ dos cocineros pudieran quedarse trabados.
 */
 const LAYOUT = [
-  '##############',
-  '##BBKKKCC...C#',
-  '#N..........V#',
-  '#R..........V#',
-  '#P..CCCC....V#',
-  '#G..........C#',
-  '#S..........C#',
-  '##WWXTD.....C#',
-  '##############',
+  '##################',
+  '##BBBCCKKKKCCCCC##',
+  '#N..............V#',
+  '#R..............V#',
+  '#P..............V#',
+  '#G...CCCCCCCC...C#',
+  '#S..............C#',
+  '#D..............C#',
+  '#................#',
+  '#..WWX..T.......C#',
+  '##################',
 ];
 
 const LEGEND = {
@@ -70,16 +74,16 @@ function buildMap() {
     w, h, cells,
     layout: LAYOUT,
     spawns: [
-      { x: 2.5, y: 5.5 },
-      { x: 5.5, y: 5.5 },
-      { x: 9.5, y: 5.5 },
+      { x: 4.5, y: 8.5 },
+      { x: 7.5, y: 8.5 },
+      { x: 10.5, y: 8.5 },
     ],
     // Decorados puramente visuales (el cliente los pinta encima de los muros)
     deco: [
-      { type: 'sign', text: 'NEGI SUSHI', x: 3.6, y: 0.06, w: 3.5, h: 0.86 },
-      { type: 'lantern', x: 0.5, y: 4.5 },
-      { type: 'lantern', x: 13.5, y: 6.5 },
-      { type: 'rug', x: 9.0, y: 2.0, w: 2, h: 3 },
+      { type: 'sign', text: 'NEGI SUSHI', x: 6.7, y: 0.05, w: 4.6, h: 0.88 },
+      { type: 'lantern', x: 0.5, y: 3.5 },
+      { type: 'lantern', x: 17.5, y: 6.5 },
+      { type: 'rug', x: 12.0, y: 2.3, w: 2.4, h: 1.9 },
     ],
   };
 }

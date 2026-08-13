@@ -28,7 +28,9 @@
 
   const SQUASH = 0.72;        // alto/ancho de cada casilla (perspectiva 3/4)
   const BLOCK = 0.50;         // altura de los muebles, en anchos de casilla
-  const PAD_TOP = 26;
+  // Franja reservada arriba para los tickets de pedidos: la cocina empieza
+  // por debajo y el HUD nunca tapa las tablas de cortar.
+  const PAD_TOP = 50;
   const PAD = 6;
 
   const C = {
@@ -478,6 +480,15 @@
         ctx.strokeStyle = '#c8a24a'; ctx.lineWidth = 2;
         this.rr(this.sx(d.x) + 4, this.sy(d.y) + 4, d.w * this.tw - 8, d.h * this.th - 8, 4); ctx.stroke();
       }
+
+      // luz calida en el centro de la cocina, bordes ligeramente en sombra
+      const kx = this.sx(this.map.w / 2), ky = this.sy(this.map.h / 2);
+      const g = ctx.createRadialGradient(kx, ky, this.tw * 2, kx, ky, this.tw * this.map.w * 0.62);
+      g.addColorStop(0, 'rgba(255,214,150,.07)');
+      g.addColorStop(0.75, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(30,18,6,.14)');
+      ctx.fillStyle = g;
+      ctx.fillRect(this.sx(0), this.sy(0), this.map.w * this.tw, this.map.h * this.th);
     },
 
     drawRowBlocks(y) {
@@ -494,10 +505,15 @@
       switch (c.type) {
         case 'wall':
           b = this.block(c.x, c.y, C.wallFace, C.wallTop, 3);
-          ctx.fillStyle = 'rgba(255,255,255,.05)';
+          // azulejos del muro: junta horizontal y vertical alternada
+          ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(b.px, b.py + b.h * 0.52); ctx.lineTo(b.px + b.w, b.py + b.h * 0.52);
+          ctx.moveTo(b.px + b.w * ((c.x + c.y) % 2 ? 0.3 : 0.68), b.py);
+          ctx.lineTo(b.px + b.w * ((c.x + c.y) % 2 ? 0.3 : 0.68), b.py + b.h * 0.52);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,.06)';
           ctx.fillRect(b.px + 2, b.py + 2, b.w - 4, 2);
-          ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1;
-          ctx.strokeRect(b.px + 0.5, b.py + 0.5, b.w - 1, b.h - 1);
           break;
 
         case 'counter':

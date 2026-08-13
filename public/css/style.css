@@ -86,15 +86,18 @@ input[type=text]:focus{border-color:var(--accent)}
 .hud{position:absolute;inset:0;pointer-events:none;
   padding:calc(.4rem + var(--safe-t)) calc(.5rem + var(--safe-r)) 0 calc(.5rem + var(--safe-l))}
 .hud-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem}
-.orders{display:flex;gap:.35rem;flex-wrap:nowrap}
-.ticket{background:#f7f4ea;color:#20232e;border-radius:8px;padding:.3rem .35rem;min-width:60px;
-  box-shadow:0 3px 8px rgba(0,0,0,.45);position:relative;overflow:hidden}
-.ticket .bar{height:4px;background:#dcd7c6;border-radius:2px;overflow:hidden;margin-bottom:.25rem}
+/* Tickets compactos: caben en la franja superior sin tapar la cocina */
+.orders{display:flex;gap:.3rem;flex-wrap:nowrap;align-items:flex-start}
+.ticket{background:#f7f4ea;color:#20232e;border-radius:7px;padding:.18rem .26rem;min-width:46px;
+  box-shadow:0 2px 6px rgba(0,0,0,.45);position:relative;overflow:hidden}
+.ticket .bar{height:3px;background:#dcd7c6;border-radius:2px;overflow:hidden;margin-bottom:.14rem}
 .ticket .bar i{display:block;height:100%;background:var(--ok);transition:width .2s linear}
 .ticket.warn .bar i{background:#ffb703}
 .ticket.crit .bar i{background:#ff5757}
-.ticket .dish{font-size:1.25rem;text-align:center;line-height:1.1}
-.ticket .ings{display:flex;justify-content:center;gap:1px;font-size:.72rem}
+.ticket.crit{animation:tkshake .5s infinite}
+@keyframes tkshake{0%,100%{transform:rotate(0)}25%{transform:rotate(-2deg)}75%{transform:rotate(2deg)}}
+.ticket .dish{font-size:.95rem;text-align:center;line-height:1.05}
+.ticket .ings{display:flex;justify-content:center;gap:1px;font-size:.56rem}
 .hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem}
 .timer{font-size:1.5rem;font-weight:900;background:rgba(12,13,18,.7);padding:.05em .4em;border-radius:9px;
   font-variant-numeric:tabular-nums}
