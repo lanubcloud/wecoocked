@@ -109,7 +109,9 @@
 
     resize() {
       if (!this.cv) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      // Tope de 2x: a 2,5x en un movil son un 56% mas de pixeles que rellenar
+      // cada fotograma, y a este tamano de dibujo no se aprecia la diferencia.
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = this.cv.clientWidth || window.innerWidth;
       const h = this.cv.clientHeight || window.innerHeight;
       this.dpr = dpr; this.cw = w; this.chh = h;
@@ -122,6 +124,47 @@
       this.bh = this.tw * BLOCK;
       this.cam.x = this.map.w / 2;
       this.cam.y = this.map.h / 2;
+      this.bgDirty = true;
+      this.publishBounds();
+    },
+
+    /**
+     * Publica el rectangulo que ocupa la cocina en pantalla como variables
+     * CSS, para que el HUD se ancle al juego y no al borde del dispositivo.
+     * En una tablet la cocina queda centrada y los pedidos se iban al techo.
+     */
+    publishBounds() {
+      const r = document.documentElement.style;
+      r.setProperty('--game-left', Math.round(this.sx(0)) + 'px');
+      r.setProperty('--game-right', Math.round(this.cw - this.sx(this.map.w)) + 'px');
+      r.setProperty('--game-top', Math.round(this.sy(0) - this.bh) + 'px');
+      // Primera fila jugable: los tickets pueden solapar la fila de muros
+      // (es decorativa) pero nunca las tablas de cortar.
+      r.setProperty('--game-play-top', Math.round(this.sy(1) - this.bh) + 'px');
+      r.setProperty('--game-bottom', Math.round(this.chh - this.sy(this.map.h)) + 'px');
+    },
+
+    /**
+     * El comedor y el suelo se pintan UNA vez en un lienzo aparte y despues
+     * solo se copian. Son cinco pasadas a pantalla completa (fondo, degradado
+     * ambiente, baldosas, sombras de muebles y luz de cocina) que antes se
+     * repetian 60 veces por segundo: ahi estaba el recalentamiento.
+     *
+     * Los muebles NO van aqui: hay que dibujarlos fila a fila intercalados
+     * con los cocineros para que tapen a quien esta detras.
+     */
+    buildStatic() {
+      const w = Math.round(this.cw * this.dpr), h = Math.round(this.chh * this.dpr);
+      if (!this.bg) this.bg = document.createElement('canvas');
+      if (this.bg.width !== w || this.bg.height !== h) { this.bg.width = w; this.bg.height = h; }
+      const real = this.ctx;
+      this.ctx = this.bg.getContext('2d');
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.ctx.clearRect(0, 0, this.cw, this.chh);
+      this.drawScenery();
+      this.drawFloor();
+      this.ctx = real;
+      this.bgDirty = false;
     },
 
     sx(x) { return (x - this.cam.x) * this.tw + this.cw / 2; },
@@ -205,19 +248,44 @@
         }
         case 'rice': {
           if (state === 'cooked') {
-            this.ell(cx, cy + s * 0.06, s * 0.3, s * 0.2, '#f3efe2');
-            this.ell(cx, cy - s * 0.05, s * 0.26, s * 0.18, '#fdfcf6');
-            this.ell(cx - s * 0.08, cy - s * 0.12, s * 0.09, s * 0.05, '#ffffff');
+            // cuenco de arroz: se reconoce al instante, como el icono de antes
+            this.ell(cx, cy - s * 0.02, s * 0.3, s * 0.22, '#fdfcf6');
+            this.ell(cx - s * 0.09, cy - s * 0.1, s * 0.11, s * 0.07, '#ffffff');
+            ctx.fillStyle = '#e9e6da';
+            for (let i = 0; i < 5; i++) {
+              const a = i * 1.257;
+              this.ell(cx + Math.cos(a) * s * 0.14, cy - s * 0.02 + Math.sin(a) * s * 0.09, s * 0.035, s * 0.025, '#eeebe0');
+            }
+            ctx.fillStyle = '#dcd8cb';
+            this.rr(cx - s * 0.3, cy + s * 0.04, s * 0.6, s * 0.06, s * 0.03); ctx.fill();
+            ctx.fillStyle = '#e8f1f7';
+            ctx.beginPath();
+            ctx.moveTo(cx - s * 0.3, cy + s * 0.06);
+            ctx.quadraticCurveTo(cx, cy + s * 0.34, cx + s * 0.3, cy + s * 0.06);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#2e6fa8';
+            ctx.beginPath();
+            ctx.moveTo(cx - s * 0.25, cy + s * 0.14);
+            ctx.quadraticCurveTo(cx, cy + s * 0.28, cx + s * 0.25, cy + s * 0.14);
+            ctx.quadraticCurveTo(cx, cy + s * 0.2, cx - s * 0.25, cy + s * 0.14);
+            ctx.closePath(); ctx.fill();
           } else {
-            // saco de arroz
+            // saco de arroz atado
             ctx.fillStyle = '#e6d6b2';
-            this.rr(cx - s * 0.24, cy - s * 0.18, s * 0.48, s * 0.42, s * 0.1); ctx.fill();
+            this.rr(cx - s * 0.25, cy - s * 0.14, s * 0.5, s * 0.42, s * 0.1); ctx.fill();
+            ctx.fillStyle = '#d3c197';
+            this.rr(cx - s * 0.25, cy + s * 0.16, s * 0.5, s * 0.12, s * 0.05); ctx.fill();
             ctx.fillStyle = '#cdb787';
-            this.rr(cx - s * 0.1, cy - s * 0.3, s * 0.2, s * 0.14, s * 0.05); ctx.fill();
-            ctx.fillStyle = '#a98f5f';
-            this.rr(cx - s * 0.12, cy - s * 0.2, s * 0.24, s * 0.05, s * 0.02); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(cx - s * 0.14, cy - s * 0.12);
+            ctx.lineTo(cx - s * 0.2, cy - s * 0.3);
+            ctx.lineTo(cx + s * 0.2, cy - s * 0.3);
+            ctx.lineTo(cx + s * 0.14, cy - s * 0.12);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#8d7444'; ctx.lineWidth = Math.max(1.5, s * 0.05);
+            ctx.beginPath(); ctx.moveTo(cx - s * 0.17, cy - s * 0.19); ctx.lineTo(cx + s * 0.17, cy - s * 0.19); ctx.stroke();
             ctx.fillStyle = '#fdfcf6';
-            for (let i = 0; i < 4; i++) this.ell(cx - s * 0.1 + i * s * 0.07, cy + s * 0.05, s * 0.025, s * 0.04, '#fdfcf6');
+            for (let i = 0; i < 3; i++) this.ell(cx - s * 0.08 + i * s * 0.08, cy + s * 0.02, s * 0.03, s * 0.045, '#fdfcf6');
           }
           break;
         }
@@ -382,8 +450,7 @@
 
       const s = this.scenery;
       if (!s) return;
-      for (const m of s.mesas) this.drawMesa(m);
-      for (const w of s.camareros) this.drawCamarero(w);
+      for (const m of s.mesas) this.drawMesa(m);   // los camareros van en la capa animada
     },
 
     drawMesa(m) {
@@ -408,7 +475,7 @@
     drawComensal(px, py, col, seed) {
       const ctx = this.ctx;
       const r = this.tw * 0.2;
-      const bob = Math.sin(this.t * 2 + seed) * r * 0.08;
+      const bob = Math.sin(seed) * r * 0.08;   // pose fija: va en la capa estatica
       this.shadow(px, py + r * 0.9, r * 0.75, 0.28);
       ctx.fillStyle = col;
       this.rr(px - r * 0.68, py - r * 0.2 + bob, r * 1.36, r * 1.15, r * 0.5); ctx.fill();
@@ -575,12 +642,6 @@
           this.rr(b.px + 4, b.py + 4, b.w - 8, b.h - 8, 5); ctx.fill();
           ctx.fillStyle = '#5fc0e4';
           this.rr(b.px + 6, b.py + 6, b.w - 12, b.h - 12, 4); ctx.fill();
-          // brillo del agua animado
-          ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5;
-          const ph = (this.t * 0.6) % 1;
-          ctx.beginPath();
-          ctx.arc(b.px + b.w * (0.3 + ph * 0.3), b.py + b.h * 0.5, s * 0.08, 0.3, 2.4);
-          ctx.stroke();
           break;
         }
 
@@ -602,28 +663,44 @@
 
         case 'serve': {
           b = this.block(c.x, c.y, '#0b0d14', C.darkTop, 4);
-          // cinta transportadora animada hacia el comedor
-          ctx.save();
-          this.rr(b.px + 4, b.py + 4, b.w - 8, b.h - 8, 4);
-          ctx.clip();
           ctx.fillStyle = '#171a26';
-          ctx.fillRect(b.px, b.py, b.w, b.h);
-          ctx.strokeStyle = 'rgba(255,209,102,.8)'; ctx.lineWidth = 3;
-          const off = (this.t * 26) % 14;
-          for (let yy = -14; yy < b.h + 14; yy += 14) {
-            ctx.beginPath();
-            ctx.moveTo(b.px + 6, b.py + yy + off);
-            ctx.lineTo(b.px + b.w / 2, b.py + yy + off + 6);
-            ctx.lineTo(b.px + b.w - 6, b.py + yy + off);
-            ctx.stroke();
-          }
-          ctx.restore();
+          this.rr(b.px + 4, b.py + 4, b.w - 8, b.h - 8, 4); ctx.fill();
           ctx.fillStyle = 'rgba(255,209,102,.9)';
           this.rr(b.px + 2, b.py + b.h - 4, b.w - 4, 3, 1.5); ctx.fill();
           break;
         }
 
         default: break;
+      }
+    },
+
+    /** Lo poco que se mueve de los muebles, encima de la capa cacheada. */
+    drawBlockAnim() {
+      const ctx = this.ctx, s = this.tw;
+      for (const c of this.cells) {
+        if (c.type === 'serve') {
+          const px = this.sx(c.x), py = this.sy(c.y) - this.bh;
+          ctx.save();
+          this.rr(px + 4, py + 4, this.tw - 8, this.th - 8, 4);
+          ctx.clip();
+          ctx.strokeStyle = 'rgba(255,209,102,.75)'; ctx.lineWidth = 3;
+          const off = (this.t * 26) % 14;
+          for (let yy = -14; yy < this.th + 14; yy += 14) {
+            ctx.beginPath();
+            ctx.moveTo(px + 6, py + yy + off);
+            ctx.lineTo(px + this.tw / 2, py + yy + off + 6);
+            ctx.lineTo(px + this.tw - 6, py + yy + off);
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (c.type === 'sink') {
+          const px = this.sx(c.x), py = this.sy(c.y) - this.bh;
+          ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5;
+          const ph = (this.t * 0.6) % 1;
+          ctx.beginPath();
+          ctx.arc(px + this.tw * (0.3 + ph * 0.3), py + this.th * 0.5, s * 0.08, 0.3, 2.4);
+          ctx.stroke();
+        }
       }
     },
 
@@ -654,23 +731,29 @@
       ctx.clearRect(0, 0, this.cw, this.chh);
       if (!this.map) { ctx.fillStyle = '#101119'; ctx.fillRect(0, 0, this.cw, this.chh); return; }
 
+      if (this.bgDirty || !this.bg) this.buildStatic();
+      ctx.drawImage(this.bg, 0, 0, this.cw, this.chh);
+
       this.stepScenery(dt);
-      this.drawScenery();
-      this.drawFloor();
+      for (const w of this.scenery.camareros) this.drawCamarero(w);
 
       const chefs = (view && view.chefs) || [];
       const tiles = (view && view.tiles) || {};
       this.overlays.length = 0;
 
-      if (view) { this.drawGround(view.gnd); this.drawAim(view); this.drawTarget(view, tiles); }
+      if (view) { this.drawGround(view.gnd); this.drawAim(view); }
 
       for (let y = 0; y < this.map.h; y++) {
         this.drawRowBlocks(y);
         this.drawTileRow(y, tiles);
         for (const ch of chefs) if (Math.floor(ch.y) === y) this.drawChef(ch);
       }
-
+      this.drawBlockAnim();
       this.drawSign();
+      // El resaltado va DESPUES de los muebles: dibujado antes quedaba tapado
+      // por la propia encimera que estaba senalando y no se veia nunca.
+      if (view) this.drawTarget(view, tiles);
+
       if (view) this.drawFlying(view.fly);
       this.drawOverlays();
       this.drawPops(dt);
@@ -807,19 +890,34 @@
         case 'serve': util = !!(h && h.k === 'p' && !h.d && h.c.length); break;
         default: util = false;
       }
+      // Seleccion bien marcada: halo, contorno grueso, relleno y una flecha
+      // encima. Tiene que verse a un metro de distancia en un movil.
       const ctx = this.ctx;
+      const x = this.sx(f.x), y = this.sy(f.y) - this.bh;
+      const col = util ? '#6dffa6' : '#ffffff';
+      const pulso = 0.5 + Math.sin(this.t * 6) * 0.5;
       ctx.save();
-      ctx.strokeStyle = util ? '#5ce88a' : 'rgba(255,255,255,.75)';
-      ctx.lineWidth = 3;
-      ctx.globalAlpha = 0.6 + Math.sin(this.t * 7) * 0.25;
-      this.rr(this.sx(f.x) + 2, this.sy(f.y) - this.bh + 2, this.tw - 4, this.th - 4, 6);
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 10 + pulso * 12;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3.5;
+      ctx.globalAlpha = 0.85;
+      this.rr(x + 2, y + 2, this.tw - 4, this.th - 4, 7);
       ctx.stroke();
-      if (util) {
-        ctx.globalAlpha = 0.16;
-        ctx.fillStyle = '#5ce88a';
-        this.rr(this.sx(f.x) + 2, this.sy(f.y) - this.bh + 2, this.tw - 4, this.th - 4, 6);
-        ctx.fill();
-      }
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = util ? 0.2 + pulso * 0.12 : 0.1;
+      ctx.fillStyle = col;
+      this.rr(x + 2, y + 2, this.tw - 4, this.th - 4, 7);
+      ctx.fill();
+      // flecha flotante sobre la estacion apuntada
+      ctx.globalAlpha = 0.95;
+      const ay = y - this.tw * 0.2 - pulso * this.tw * 0.06;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(x + this.tw / 2, ay + this.tw * 0.16);
+      ctx.lineTo(x + this.tw / 2 - this.tw * 0.13, ay);
+      ctx.lineTo(x + this.tw / 2 + this.tw * 0.13, ay);
+      ctx.closePath(); ctx.fill();
       ctx.restore();
     },
 
@@ -989,6 +1087,37 @@
         ctx.globalAlpha = 1;
       }
     },
+  };
+
+  /**
+   * Iconos para el HUD dibujados con el MISMO arte que el tablero, cacheados
+   * como data URL. Antes los tickets usaban emojis y el cajon otra cosa: por
+   * eso parecia que pedian un pescado que no estaba en la cocina.
+   */
+  Render.iconCache = {};
+  Render.iconFor = function (type, state, px) {
+    const key = type + ':' + state + ':' + px;
+    if (this.iconCache[key]) return this.iconCache[key];
+    const cv = document.createElement('canvas');
+    cv.width = px; cv.height = px;
+    const real = this.ctx;
+    this.ctx = cv.getContext('2d');
+    this.drawFood(type, state, px / 2, px / 2, px * 0.92);
+    this.ctx = real;
+    return (this.iconCache[key] = cv.toDataURL('image/png'));
+  };
+
+  /** El plato terminado tal y como debe verse al servirlo. */
+  Render.dishIcon = function (items, px) {
+    const key = 'dish:' + items.join('+') + ':' + px;
+    if (this.iconCache[key]) return this.iconCache[key];
+    const cv = document.createElement('canvas');
+    cv.width = px; cv.height = px;
+    const real = this.ctx;
+    this.ctx = cv.getContext('2d');
+    this.drawPlate(px / 2, px / 2, px * 0.95, false, items);
+    this.ctx = real;
+    return (this.iconCache[key] = cv.toDataURL('image/png'));
   };
 
   function buildScenery(map) {

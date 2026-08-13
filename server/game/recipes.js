@@ -9,11 +9,16 @@ const INGREDIENTS = {
   salmon:   { name: 'Salmon',  emoji: '\u{1F41F}', color: '#ff7a59', prep: 'chop' },
 };
 
+/*
+ Cada receta se distingue por UN ingrediente propio ademas del arroz, para
+ que se identifique de un vistazo sin tener que leer. Antes habia dos makis
+ de salmon que solo se diferenciaban en el nori y se confundian.
+*/
 const RECIPES = [
-  { id: 'nigiri_gamba',  name: 'Nigiri de gamba',  emoji: '\u{1F363}', items: ['rice', 'shrimp'],            score: 16 },
-  { id: 'nigiri_salmon', name: 'Nigiri de salmon', emoji: '\u{1F363}', items: ['rice', 'salmon'],            score: 18 },
-  { id: 'maki_pepino',   name: 'Maki de pepino',   emoji: '\u{1F365}', items: ['nori', 'rice', 'cucumber'],  score: 24 },
-  { id: 'maki_salmon',   name: 'Maki de salmon',   emoji: '\u{1F365}', items: ['nori', 'rice', 'salmon'],    score: 28 },
+  { id: 'nigiri_salmon', name: 'Nigiri de salmon', emoji: '\u{1F363}', items: ['rice', 'salmon'],           score: 16 },
+  { id: 'nigiri_gamba',  name: 'Nigiri de gamba',  emoji: '\u{1F363}', items: ['rice', 'shrimp'],           score: 18 },
+  { id: 'onigiri',       name: 'Onigiri de nori',  emoji: '\u{1F359}', items: ['rice', 'nori'],             score: 20 },
+  { id: 'maki_pepino',   name: 'Maki de pepino',   emoji: '\u{1F365}', items: ['rice', 'cucumber', 'nori'], score: 28 },
 ];
 
 /** Estado en el que un ingrediente se considera "listo" para emplatar. */

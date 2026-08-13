@@ -108,10 +108,14 @@
           const r = this.recipes[o.r];
           el = document.createElement('div');
           el.className = 'ticket';
-          el.innerHTML =
-            `<div class="bar"><i></i></div>` +
-            `<div class="dish">${r ? r.emoji : '?'}</div>` +
-            `<div class="ings">${r ? r.items.map((t) => this.ing[t].emoji).join('') : ''}</div>`;
+          // mismo arte que en la cocina, para que el pedido y el cajon coincidan
+          const plato = r ? `<img class="dish" alt="" src="${global.Render.dishIcon(r.items, 46)}">` : '';
+          const ings = r ? r.items.map((t) => {
+            const prep = this.ing[t].prep;
+            const st = prep === 'cook' ? 'cooked' : prep === 'chop' ? 'chopped' : 'raw';
+            return `<img alt="" src="${global.Render.iconFor(t, st, 26)}">`;
+          }).join('') : '';
+          el.innerHTML = `<div class="bar"><i></i></div>${plato}<div class="ings">${ings}</div>`;
           this.ticketCache.set(o.id, el);
           wrap.appendChild(el);
         }

@@ -32,6 +32,8 @@ button,input{font:inherit;color:inherit}
 .btn.on{outline:2px solid var(--ok);outline-offset:1px}
 .btn:disabled{opacity:.45;pointer-events:none}
 .hint{color:var(--muted);font-size:.8rem;line-height:1.4;margin:.6em 0 0}
+.btn.install{width:100%;background:transparent;border:1px dashed #3d4459;color:var(--muted);font-size:.85rem}
+.btn.install::before{content:"\2b07\fe0f";margin-right:.5em}
 
 /* ---------------------------------------------------------- menu */
 .menu-wrap{height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;
@@ -83,9 +85,19 @@ input[type=text]:focus{border-color:var(--accent)}
 /* ---------------------------------------------------------- juego */
 #screen-game{background:#0c0d12}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-.hud{position:absolute;inset:0;pointer-events:none;
-  padding:calc(.4rem + var(--safe-t)) calc(.5rem + var(--safe-r)) 0 calc(.5rem + var(--safe-l))}
-.hud-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem}
+/* El HUD se ancla al rectangulo de la COCINA, no al borde del dispositivo.
+   En una tablet la cocina queda centrada con mucho hueco arriba y el HUD se
+   iba al techo, encima de la equis del navegador. Las variables las publica
+   Render en cada resize. */
+.hud{position:absolute;pointer-events:none;
+  left:max(calc(.4rem + var(--safe-l)), var(--game-left, 0px));
+  right:max(calc(.4rem + var(--safe-r)), var(--game-right, 0px));
+  top:calc(.3rem + var(--safe-t));
+  /* la fila del HUD acaba justo encima de la primera fila jugable */
+  height:max(56px, calc(var(--game-play-top, 60px) - .3rem - var(--safe-t)));
+  bottom:auto}
+.hud-top{position:absolute;left:0;right:0;bottom:4px;
+  display:flex;justify-content:space-between;align-items:flex-end;gap:.5rem}
 /* Tickets compactos: caben en la franja superior sin tapar la cocina */
 .orders{display:flex;gap:.3rem;flex-wrap:nowrap;align-items:flex-start}
 .ticket{background:#f7f4ea;color:#20232e;border-radius:7px;padding:.18rem .26rem;min-width:46px;
@@ -96,8 +108,9 @@ input[type=text]:focus{border-color:var(--accent)}
 .ticket.crit .bar i{background:#ff5757}
 .ticket.crit{animation:tkshake .5s infinite}
 @keyframes tkshake{0%,100%{transform:rotate(0)}25%{transform:rotate(-2deg)}75%{transform:rotate(2deg)}}
-.ticket .dish{font-size:.95rem;text-align:center;line-height:1.05}
-.ticket .ings{display:flex;justify-content:center;gap:1px;font-size:.56rem}
+.ticket .dish{display:block;width:30px;height:30px;margin:0 auto}
+.ticket .ings{display:flex;justify-content:center;gap:1px}
+.ticket .ings img{width:15px;height:15px;display:block}
 .hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem}
 .timer{font-size:1.5rem;font-weight:900;background:rgba(12,13,18,.7);padding:.05em .4em;border-radius:9px;
   font-variant-numeric:tabular-nums}

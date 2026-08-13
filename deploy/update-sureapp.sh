@@ -62,6 +62,19 @@ done
 echo "    todos los modulos del servidor OK"
 
 echo
+# El service worker cachea los assets por su ?v=. Si cambio algo de public/
+# pero no subio la version, los moviles seguirian con el juego viejo.
+if git diff --name-only "$ANTES" HEAD | grep -q '^public/' ; then
+  V_HTML="$(grep -o 'js/main.js?v=[0-9]*' public/index.html | grep -o '[0-9]*' | head -1)"
+  V_SW="$(grep -o "CACHE = 'wecoocked-v[0-9]*'" public/sw.js | grep -o '[0-9]*' | head -1)"
+  if [[ "$V_HTML" != "$V_SW" ]]; then
+    echo "AVISO: index.html va por v=$V_HTML y sw.js por v=$V_SW. Los moviles"
+    echo "       instalados podrian quedarse con la version antigua." >&2
+  else
+    echo "    assets en v=$V_HTML (index.html y sw.js coinciden)"
+  fi
+fi
+
 # Solo el codigo de server/ necesita reinicio: lo de public/ lo sirve Express
 # leyendolo del disco en cada peticion, asi que entra en vigor al recargar.
 if git diff --name-only "$ANTES" HEAD | grep -q '^server/'; then

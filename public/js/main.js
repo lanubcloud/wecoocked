@@ -96,6 +96,39 @@
     // ?sala=XXXX en la URL rellena el codigo
     const qs = new URLSearchParams(location.search);
     if (qs.get('sala')) $('#inp-code').value = qs.get('sala').toUpperCase().slice(0, 4);
+
+    bindInstall();
+  }
+
+  /**
+   * Instalacion en el dispositivo. Al instalarlo, el service worker sirve el
+   * juego desde el almacenamiento local: no vuelve a descargar nada y arranca
+   * al instante.
+   */
+  function bindInstall() {
+    const btn = $('#btn-install');
+    let prompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();          // usamos nuestro boton, no el del navegador
+      prompt = e;
+      btn.hidden = false;
+    });
+    window.addEventListener('appinstalled', () => { btn.hidden = true; prompt = null; });
+
+    btn.addEventListener('click', async () => {
+      if (!prompt) return;
+      btn.disabled = true;
+      prompt.prompt();
+      await prompt.userChoice;
+      prompt = null;
+      btn.hidden = true;
+      btn.disabled = false;
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch((e) => console.warn('[sw]', e.message));
+    }
   }
 
   function bindLobby() {
@@ -353,7 +386,8 @@
     const dt = Math.min(0.05, (now - (G.lastFrame || now)) / 1000);
     G.lastFrame = now;
 
-    if (UI.screen !== 'game') return;
+    // Fuera de la partida no hay nada que animar: no gastes bateria.
+    if (UI.screen !== 'game' || document.hidden) return;
 
     let view = null;
     if (G.latest) {
@@ -381,7 +415,10 @@
       Render.aim.canThrow = Input.throwEnabled && !!G.holding && G.holding.k === 'i';
 
       view = { chefs, tiles: G.latest.tiles, orders: G.latest.orders, fly: G.latest.fly, gnd: G.latest.gnd };
-      UI.renderHud(G.latest, G.myTeam);
+      // El HUD son escrituras al DOM y recalculo de estilos. El reloj cambia
+      // 10 veces por segundo, no 60: refrescarlo en cada fotograma era trabajo
+      // tirado que ademas calienta el movil.
+      if (now - (G.lastHud || 0) > 100) { G.lastHud = now; UI.renderHud(G.latest, G.myTeam); }
     }
     Render.draw(view, dt);
   }
