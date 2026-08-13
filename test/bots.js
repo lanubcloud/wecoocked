@@ -109,6 +109,24 @@ for (const level of ['facil', 'normal', 'dificil']) {
   ok(ms < 3000, `3 min de partida con 3 bots simulados en ${ms} ms (presupuesto real: 180000 ms)`);
 }
 
+
+// --- 8. sin bloqueos: dos cocineros que se cruzan no pueden quedarse trabados.
+// Con pasillos de una sola casilla, dos bots yendo en sentidos opuestos se
+// atascaban de por vida y la cocina entera se paraba (0 platos).
+{
+  const malos = [];
+  for (let n = 2; n <= 3; n++) {
+    for (let i = 0; i < 6; i++) {
+      const p = [];
+      for (let k = 0; k < n; k++) p.push({ id: 'b' + k, name: 'B' + k, bot: true, level: 'dificil' });
+      const eng = new Engine(map, 3000 + i, p, n);
+      for (let t = 0; t < TICK_HZ * MATCH_SECONDS; t++) eng.step();
+      if (eng.delivered < 4) malos.push(n + ' bots -> ' + eng.delivered);
+    }
+  }
+  ok(malos.length === 0, 'ninguna partida con 2 o 3 bots se bloquea: ' + (malos.join(', ') || 'todas producen'));
+}
+
 console.log(fails ? `\n${fails} FALLOS` : '\nTodo OK');
 process.exit(fails ? 1 : 0);
 

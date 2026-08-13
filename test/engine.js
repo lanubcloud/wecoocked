@@ -71,7 +71,8 @@ const board = find('board');
 faceTile(board.x, board.y); eng.requestAct('p1');
 ok(!ch.holding, 'pone la gamba en la tabla');
 // cortar va a toques: un requestChop por pulsacion, con su cooldown entre medias
-for (let i = 0; i < PREP.chopTaps; i++) { eng.requestChop('p1'); for (let j = 0; j < 3; j++) eng.step(); }
+// el boton unico: con las manos libres, cada toque en la tabla es un tajo
+for (let i = 0; i < PREP.chopTaps; i++) { eng.requestAct('p1'); for (let j = 0; j < 3; j++) eng.step(); }
 ok(eng.stateAt(board.x, board.y).item.s === 'chopped', 'la gamba queda cortada');
 
 // plato + emplatado
@@ -101,7 +102,9 @@ ok(ch.holding && ch.holding.k === 'p' && ch.holding.d === 1, 'coge el plato suci
 const sink = find('sink');
 faceTile(sink.x, sink.y); eng.requestAct('p1');
 ok(!ch.holding && eng.stateAt(sink.x, sink.y).dirty === 1, 'deja el plato en el fregadero');
-for (let i = 0; i < PREP.washTaps; i++) { eng.requestChop('p1'); for (let j = 0; j < 3; j++) eng.step(); }
+ch.hold = true;                       // fregar es mantener pulsado
+for (let i = 0; i < Math.ceil(PREP.washTime / DT) + 2; i++) eng.step();
+ch.hold = false;
 ok(eng.stateAt(sink.x, sink.y).clean === 1, 'friega el plato');
 faceTile(sink.x, sink.y); eng.requestAct('p1');
 ok(ch.holding && ch.holding.k === 'p' && !ch.holding.d, 'recoge el plato limpio');
@@ -129,8 +132,8 @@ ok(bytes < 4000, `snapshot compacto (${bytes} bytes -> ~${Math.round(bytes * 20 
   e9.stateAt(b.x, b.y).item = { k: 'i', t: 'cucumber', s: 'raw' };
   c2.hold = true;
   for (let i = 0; i < 200; i++) e9.step();          // 10 segundos manteniendo
-  ok(e9.stateAt(b.x, b.y).item.s === 'raw', 'mantener pulsado no corta nada');
-  for (let i = 0; i < PREP.chopTaps; i++) { e9.requestChop('x'); for (let j = 0; j < 3; j++) e9.step(); }
+  ok(e9.stateAt(b.x, b.y).item.s === 'raw', 'mantener pulsado no corta en la tabla');
+  for (let i = 0; i < PREP.chopTaps; i++) { e9.requestAct('x'); for (let j = 0; j < 3; j++) e9.step(); }
   ok(e9.stateAt(b.x, b.y).item.s === 'chopped', 'pulsar ' + PREP.chopTaps + ' veces si corta');
 }
 

@@ -29,9 +29,10 @@
     return p[slot % p.length];
   };
 
-  const SQUASH = 0.80;        // alto/ancho de cada casilla
-  const BLOCK = 0.52;         // altura de los muebles, en anchos de casilla
-  const ZOOM = 2.05;          // casillas mas grandes que el encaje completo
+  const SQUASH = 0.72;        // alto/ancho de cada casilla (perspectiva 3/4)
+  const BLOCK = 0.50;         // altura de los muebles, en anchos de casilla
+  const PAD_TOP = 26;         // hueco para el HUD (solo ocupa las esquinas)
+  const PAD = 6;
 
   // Paleta de la cocina
   const C = {
@@ -101,32 +102,30 @@
       this.cv.width = Math.round(w * dpr);
       this.cv.height = Math.round(h * dpr);
       if (!this.map) return;
-      // tamano base = encajar el mapa; luego el zoom lo acerca
-      const base = Math.min(w / this.map.w, (h - 40) / (this.map.h * SQUASH));
-      this.tw = base * ZOOM;
+      // La cocina entera tiene que caber en pantalla: el tamano de casilla es
+      // el mayor que lo permite. Por eso el mapa es compacto.
+      // Se deja un margen a los lados para que asome el comedor.
+      const lado = Math.max(PAD, w * 0.045);
+      this.tw = Math.min((w - lado * 2) / this.map.w, (h - PAD_TOP - PAD) / (this.map.h * SQUASH));
       this.th = this.tw * SQUASH;
       this.bh = this.tw * BLOCK;
+      this.cam.x = this.map.w / 2;
+      this.cam.y = this.map.h / 2;
       this._floor = null;
     },
 
     // --------------------------------------------------------- coordenadas
     sx(x) { return (x - this.cam.x) * this.tw + this.cw / 2; },
-    sy(y) { return (y - this.cam.y) * this.th + this.chh / 2 + 14; },
+    sy(y) { return (y - this.cam.y) * this.th + this.chh / 2 + PAD_TOP / 2; },
 
-    /** La camara persigue al cocinero local y se frena en los bordes del mapa. */
-    follow(chef, dt) {
+    /**
+     * Camara fija centrada: se ve la cocina entera de un vistazo, que es lo
+     * que hace falta para coordinarse con el equipo. No persigue a nadie.
+     */
+    follow() {
       if (!this.map) return;
-      const viewW = this.cw / this.tw, viewH = this.chh / this.th;
-      let tx = chef ? chef.x : this.map.w / 2;
-      let ty = chef ? chef.y : this.map.h / 2;
-      const margin = 1.2;                     // deja ver un poco de escenario
-      if (this.map.w + margin * 2 <= viewW) tx = this.map.w / 2;
-      else tx = Math.max(viewW / 2 - margin, Math.min(this.map.w - viewW / 2 + margin, tx));
-      if (this.map.h + margin * 2 <= viewH) ty = this.map.h / 2;
-      else ty = Math.max(viewH / 2 - margin, Math.min(this.map.h - viewH / 2 + margin, ty));
-      const k = Math.min(1, dt * 9);
-      this.cam.x += (tx - this.cam.x) * k;
-      this.cam.y += (ty - this.cam.y) * k;
+      this.cam.x = this.map.w / 2;
+      this.cam.y = this.map.h / 2;
     },
 
     // -------------------------------------------------------------- helpers
@@ -801,15 +800,19 @@
     },
   };
 
-  /** Mesas y camareros alrededor de la cocina. Solo decoracion. */
+  /**
+   * Comedor alrededor de la cocina. Con la cocina entera en pantalla apenas
+   * queda margen, asi que las mesas se pegan a los muros para que asomen por
+   * los bordes: se lee como que el local sigue mas alla.
+   */
   function buildScenery(map) {
     const mesas = [];
     const cols = ['#c8564b', '#4b7ec8', '#48a06a', '#c8a24a', '#8a5fc0', '#d0793f'];
     const puestos = [
-      [-3.2, 2.2], [-3.4, 6.0], [-3.0, 9.6],
-      [map.w + 2.4, 2.6], [map.w + 2.8, 6.4], [map.w + 2.2, 10.0],
-      [3.5, -3.0], [9.0, -3.4], [15.0, -3.0],
-      [4.5, map.h + 2.6], [11.0, map.h + 3.0], [17.0, map.h + 2.6],
+      [-0.75, 2.0], [-0.75, 5.2], [-0.75, 7.6],
+      [map.w + 0.75, 1.6], [map.w + 0.75, 4.2], [map.w + 0.75, 7.2],
+      [3.0, -0.8], [7.5, -0.8], [11.5, -0.8],
+      [2.5, map.h + 0.8], [7.0, map.h + 0.8], [11.0, map.h + 0.8],
     ];
     puestos.forEach((p, i) => {
       const n = 2 + (i % 2);
@@ -821,9 +824,9 @@
     });
 
     const camareros = [
-      { puntos: [{ x: -1.6, y: 1 }, { x: -1.6, y: 11 }, { x: -4.6, y: 11 }, { x: -4.6, y: 1 }], i: 0, t: 0, vel: 0.16, seed: 0.4 },
-      { puntos: [{ x: map.w + 1.4, y: 11 }, { x: map.w + 1.4, y: 1 }, { x: map.w + 4.4, y: 1 }, { x: map.w + 4.4, y: 11 }], i: 0, t: 0.5, vel: 0.13, seed: 2.1 },
-      { puntos: [{ x: 2, y: map.h + 1.4 }, { x: 19, y: map.h + 1.4 }], i: 0, t: 0.2, vel: 0.07, seed: 3.7 },
+      { puntos: [{ x: -0.5, y: 1 }, { x: -0.5, y: map.h - 1 }], i: 0, t: 0, vel: 0.14, seed: 0.4 },
+      { puntos: [{ x: map.w + 0.5, y: map.h - 1 }, { x: map.w + 0.5, y: 1 }], i: 0, t: 0.5, vel: 0.11, seed: 2.1 },
+      { puntos: [{ x: 1.5, y: map.h + 0.5 }, { x: map.w - 1.5, y: map.h + 0.5 }], i: 0, t: 0.2, vel: 0.08, seed: 3.7 },
     ];
     return { mesas, camareros };
   }

@@ -39,6 +39,9 @@
       if (!this.enabled || this.pointer !== null) return;
       if (e.target.closest('.gbtn,.micbtn,.menubtn')) return;
       e.preventDefault();
+      const ahora = performance.now();
+      if (ahora - (this._lastDown || 0) < 300 && this.onDoubleTap) this.onDoubleTap();
+      this._lastDown = ahora;
       this.pointer = e.pointerId;
       if (this.fixed) {
         const c = this._center();
@@ -123,14 +126,15 @@
         if (this.onThrow) this.onThrow(x, y);
       };
 
-      const a = document.getElementById('btn-a');
-      const b = document.getElementById('btn-b');
-      const dash = document.getElementById('btn-dash');
+      // Un solo boton para todo. Lo que hace depende de lo que tengas delante:
+      //  un toque       -> coger / soltar / servir
+      //  toques seguidos-> cortar en la tabla
+      //  mantener       -> fregar en el fregadero
+      this._actionBtn(document.getElementById('btn-a'));
 
-      this._tap(a, () => { this.buzz(12); if (this.onAct) this.onAct(); });
-      this._tap(dash, () => { this.buzz(18); if (this.onDash) this.onDash(); });
-      // Cortar y fregar van a toques: cada pulsacion es un tajo.
-      this._tap(b, () => { this.buzz(9); if (this.onChop) this.onChop(); });
+      // Correr: doble toque en el joystick de movimiento, para no gastar
+      // otro boton en pantalla.
+      this.move.onDoubleTap = () => { this.buzz(18); if (this.onDash) this.onDash(); };
 
       // teclado (util para probar en escritorio)
       const keys = {};
@@ -151,15 +155,27 @@
       return this;
     },
 
-    _tap(el, fn) {
-      el.addEventListener('pointerdown', (e) => {
+    _actionBtn(el) {
+      let timer = null;
+      const down = (e) => {
         e.preventDefault(); e.stopPropagation();
-        el.classList.add('down'); fn();
-      }, { passive: false });
-      const off = () => el.classList.remove('down');
-      el.addEventListener('pointerup', off);
-      el.addEventListener('pointercancel', off);
-      el.addEventListener('pointerleave', off);
+        el.classList.add('down');
+        this.buzz(10);
+        // La accion sale ya en el pointerdown: esperar a saber si es toque o
+        // mantenido metia un retardo perceptible en lo que mas se usa.
+        if (this.onAct) this.onAct();
+        clearTimeout(timer);
+        timer = setTimeout(() => { this.hold = true; el.classList.add('holding'); }, 240);
+      };
+      const up = () => {
+        clearTimeout(timer);
+        this.hold = false;
+        el.classList.remove('down', 'holding');
+      };
+      el.addEventListener('pointerdown', down, { passive: false });
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      el.addEventListener('pointerleave', up);
     },
 
     buzz(ms) {

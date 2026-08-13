@@ -328,9 +328,6 @@
       view = { chefs, tiles: G.latest.tiles, orders: G.latest.orders, fly: G.latest.fly, gnd: G.latest.gnd };
       UI.renderHud(G.latest, G.myTeam);
     }
-    // la camara persigue tu cocinero (usa la posicion predicha, sin retardo)
-    const yo = view && view.chefs.find((c) => c.id === Net.id);
-    Render.follow(yo || (G.me ? { x: G.me.x, y: G.me.y } : null), dt);
     Render.draw(view, dt);
   }
 

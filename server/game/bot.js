@@ -14,7 +14,8 @@ const LEVELS = {
   dificil: { id: 'dificil', name: 'Dificil', speed: 1.00, react: 0.10, sloppy: 0.02 },
 };
 
-const ARRIVE = 0.16;      // margen para dar por buena la casilla destino
+const ARRIVE = 0.22;      // margen para dar por buena la casilla destino
+const BRAKE = 0.55;       // distancia a la que empieza a frenar
 const STUCK_TIME = 1.4;   // segundos sin avanzar antes de recalcular la ruta
 
 /**
@@ -113,11 +114,13 @@ class Bot {
         const st = this.eng.stateAt(step.tile.x, step.tile.y);
         if (!st) { this._abort(); break; }
         if (st.clean > 0) {
+          ch.hold = false;
           this.eng.requestAct(this.id);          // coger plato limpio
           this._nextStep();
         } else if (st.dirty > 0) {
-          this.eng.requestChop(this.id);         // fregar tambien va a toques
+          ch.hold = true;                        // fregar es mantener pulsado
         } else {
+          ch.hold = false;
           this._abort();
         }
         break;
@@ -188,15 +191,18 @@ class Bot {
     const d = Math.hypot(dx, dy);
     const last = this.pathIdx >= this.path.length - 1;
 
-    if (d < (last ? ARRIVE : 0.28)) {
+    if (d < (last ? ARRIVE : 0.3)) {
       if (last) { ch.mx = 0; ch.my = 0; return; }
       this.pathIdx++;
       return;
     }
 
-    ch.mx = dx / d;
-    ch.my = dy / d;
-    ch.fx = ch.mx; ch.fy = ch.my;
+    // Frenar al acercarse. Sin esto, un bot rapido recorre mas de una casilla
+    // cada dos ticks, se pasa del destino y oscila sin llegar nunca.
+    const v = last ? Math.max(0.25, Math.min(1, d / BRAKE)) : 1;
+    ch.mx = (dx / d) * v;
+    ch.my = (dy / d) * v;
+    ch.fx = dx / d; ch.fy = dy / d;
 
     // detector de atascos: si no avanzamos, recalculamos y probamos otra ruta
     const moved = Math.hypot(ch.x - this.lastX, ch.y - this.lastY);

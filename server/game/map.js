@@ -10,20 +10,23 @@
  T  basura                  V  ventanilla de entrega
  N/R/P/G/S  cajas de nori / arroz / pepino / gamba / salmon
 */
+/*
+ Cocina compacta: 14x9. El tamano importa. Con el mapa antiguo (22x13) era
+ imposible ver toda la cocina y a la vez tener casillas grandes en un movil:
+ no cabian. Al reducirla, todo entra en pantalla con casillas mas del doble
+ de grandes, se corre menos y hay mas roce entre companeros, que es de donde
+ sale la gracia del juego.
+*/
 const LAYOUT = [
-  '######################',
-  '#....................#',
-  '#N..CCBBCC...CKKKKC..#',
-  '#R.......C...C.......V',
-  '#P.......C...C.......V',
-  '#G.......C...C.......V',
-  '#S.......C...C.......#',
-  '#D.......C...C.......#',
-  '#C.......C...C..CCCC.#',
-  '#C...........C.......#',
-  '#..CCTC.....CWWX.....#',
-  '#....................#',
-  '######################',
+  '##############',
+  '##BBKKKCC...C#',
+  '#N..........V#',
+  '#R..........V#',
+  '#P..CCCC....V#',
+  '#G..........C#',
+  '#S..........C#',
+  '##WWXTD.....C#',
+  '##############',
 ];
 
 const LEGEND = {
@@ -67,17 +70,16 @@ function buildMap() {
     w, h, cells,
     layout: LAYOUT,
     spawns: [
-      { x: 3.5, y: 11.5 },
-      { x: 6.5, y: 11.5 },
-      { x: 9.5, y: 11.5 },
+      { x: 2.5, y: 5.5 },
+      { x: 5.5, y: 5.5 },
+      { x: 9.5, y: 5.5 },
     ],
     // Decorados puramente visuales (el cliente los pinta encima de los muros)
     deco: [
-      { type: 'sign', text: 'NEGI SUSHI', x: 13.2, y: 0.08, w: 5.6, h: 0.85 },
-      { type: 'sakura', x: 0.5, y: 11.5, r: 0.9 },
-      { type: 'lantern', x: 0.5, y: 1.5 },
-      { type: 'lantern', x: 21.5, y: 8.5 },
-      { type: 'rug', x: 10.0, y: 1.0, w: 2, h: 1 },
+      { type: 'sign', text: 'NEGI SUSHI', x: 3.6, y: 0.06, w: 3.5, h: 0.86 },
+      { type: 'lantern', x: 0.5, y: 4.5 },
+      { type: 'lantern', x: 13.5, y: 6.5 },
+      { type: 'rug', x: 9.0, y: 2.0, w: 2, h: 3 },
     ],
   };
 }

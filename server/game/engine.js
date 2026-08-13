@@ -209,46 +209,30 @@ class Engine {
     ch.dashT = CHEF.dashTime;
   }
 
-  /**
-   * Boton de cortar/fregar. Cada pulsacion avanza un paso; no vale mantener.
-   * El cooldown corta los autoclickers sin estorbar a quien pulsa rapido.
-   */
+  /** Un tajo. El cooldown corta autoclickers sin estorbar a quien pulsa rapido. */
+  _chopStep(ch, st, f) {
+    if (ch.tapCd > 0) return;
+    ch.tapCd = PREP.tapCooldown;
+    ch.chopAnim = 0.18;                       // el cliente lo usa para el cuchillo
+    st.prog = Math.min(1, st.prog + 1 / PREP.chopTaps);
+    this.fx('tap', f.x + 0.5, f.y + 0.5, '');
+    if (st.prog >= 1) {
+      st.item.s = 'chopped';
+      st.prog = 0;
+      this.fx('chop', f.x + 0.5, f.y + 0.5, '');
+    }
+  }
+
+  /** Se mantiene por compatibilidad: los bots lo usan para cortar. */
   requestChop(id) {
     const ch = this.chefs.get(id);
-    if (!ch || ch.tapCd > 0) return;
+    if (!ch) return;
     const f = this.frontOf(ch);
     const cell = this.cellAt(f.x, f.y);
-    if (!cell) return;
+    if (!cell || cell.type !== 'board') return;
     const st = this.tiles[this.idx(f.x, f.y)];
-
-    if (cell.type === 'board' && st.item && st.item.k === 'i' &&
-        INGREDIENTS[st.item.t].prep === 'chop' && st.item.s === 'raw') {
-      ch.tapCd = PREP.tapCooldown;
-      ch.chopAnim = 0.18;                       // el cliente lo usa para el cuchillo
-      st.prog = Math.min(1, st.prog + 1 / PREP.chopTaps);
-      this.fx('tap', f.x + 0.5, f.y + 0.5, '');
-      if (st.prog >= 1) {
-        st.item.s = 'chopped';
-        st.prog = 0;
-        this.fx('chop', f.x + 0.5, f.y + 0.5, '');
-      }
-      return;
-    }
-
-    if (cell.type === 'sink' && st.dirty > 0) {
-      ch.tapCd = PREP.tapCooldown;
-      ch.chopAnim = 0.18;
-      st.prog = Math.min(1, st.prog + 1 / PREP.washTaps);
-      this.fx('tap', f.x + 0.5, f.y + 0.5, '');
-      if (st.prog >= 1) {
-        st.dirty--; st.clean++; st.prog = 0;
-        this.fx('wash', f.x + 0.5, f.y + 0.5, '');
-      }
-      return;
-    }
-
-    // Nada que cortar delante: sirve de pista visual
-    if (cell.interactive) this.fx('hint', f.x + 0.5, f.y + 0.5, '');
+    if (st.item && st.item.k === 'i' && st.item.s === 'raw' &&
+        INGREDIENTS[st.item.t].prep === 'chop') this._chopStep(ch, st, f);
   }
 
   requestAct(id) {
@@ -357,7 +341,15 @@ class Engine {
   _actBoard(ch, st, f) {
     const held = ch.holding;
     if (!held) {
-      if (st.item) { ch.holding = st.item; st.item = null; st.prog = 0; }
+      const it = st.item;
+      if (!it) return;
+      // Con las manos libres y algo crudo encima, el boton corta en vez de
+      // recoger: por eso "pulsar varias veces" pica el alimento.
+      if (it.k === 'i' && it.s === 'raw' && INGREDIENTS[it.t].prep === 'chop') {
+        this._chopStep(ch, st, f);
+        return;
+      }
+      ch.holding = it; st.item = null; st.prog = 0;
       return;
     }
     if (st.item) { this._actSurface(ch, st, f); return; }
@@ -574,17 +566,38 @@ class Engine {
         if (d < 1e-4) { dx = 0.01; dy = 0; d = 0.01; }
         if (d < min) {
           const push = (min - d) / 2;
-          const ux = dx / d, uy = dy / d;
-          if (!this.blocked(a.x - ux * push, a.y - uy * push, CHEF.radius)) { a.x -= ux * push; a.y -= uy * push; }
-          if (!this.blocked(b.x + ux * push, b.y + uy * push, CHEF.radius)) { b.x += ux * push; b.y += uy * push; }
+          let ux = dx / d, uy = dy / d;
+          // Empuje puramente frontal + pasillo estrecho = dos cocineros
+          // trabados de por vida. Se anade una componente lateral para que se
+          // esquiven, como haria la gente al cruzarse.
+          const lateral = 0.55;
+          const tx = -uy * lateral, ty = ux * lateral;
+          const na = Math.hypot(ux + tx, uy + ty) || 1;
+          const ax = (ux + tx) / na, ay = (uy + ty) / na;
+          if (!this.blocked(a.x - ax * push, a.y - ay * push, CHEF.radius)) { a.x -= ax * push; a.y -= ay * push; }
+          else if (!this.blocked(a.x - ux * push, a.y - uy * push, CHEF.radius)) { a.x -= ux * push; a.y -= uy * push; }
+          if (!this.blocked(b.x + ax * push, b.y + ay * push, CHEF.radius)) { b.x += ax * push; b.y += ay * push; }
+          else if (!this.blocked(b.x + ux * push, b.y + uy * push, CHEF.radius)) { b.x += ux * push; b.y += uy * push; }
         }
       }
     }
 
-    // temporizadores de los toques de cortar/fregar
     for (const ch of list) {
       if (ch.tapCd > 0) ch.tapCd -= DT;
       if (ch.chopAnim > 0) ch.chopAnim -= DT;
+
+      // Fregar SI es mantener pulsado: es una tarea de aguantar, no de ritmo.
+      if (!ch.hold) continue;
+      const f = this.frontOf(ch);
+      const cell = this.cellAt(f.x, f.y);
+      if (!cell || cell.type !== 'sink') continue;
+      const st = this.tiles[this.idx(f.x, f.y)];
+      if (st.dirty <= 0) continue;
+      st.prog += DT / PREP.washTime;
+      if (st.prog >= 1) {
+        st.dirty--; st.clean++; st.prog = 0;
+        this.fx('wash', f.x + 0.5, f.y + 0.5, '');
+      }
     }
   }
 

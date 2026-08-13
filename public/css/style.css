@@ -130,9 +130,12 @@ input[type=text]:focus{border-color:var(--accent)}
   background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.13),rgba(0,0,0,.30));
   box-shadow:inset 0 2px 10px rgba(0,0,0,.45),0 3px 14px rgba(0,0,0,.35)}
 .stick.show{display:grid}
-/* el de movimiento vive anclado abajo a la izquierda, siempre visible */
-.stick.fixed{left:calc(88px + var(--safe-l));top:auto;bottom:16px;margin:0 0 -66px 0;
-  transform:translateX(-50%);opacity:.62;transition:opacity .15s}
+/* El de movimiento va anclado abajo a la izquierda. Con "inset auto" y sin
+   margenes negativos: antes la mitad inferior quedaba fuera de la pantalla y
+   por eso no se podia arrastrar hacia abajo. */
+.stick.fixed{left:calc(18px + var(--safe-l));top:auto;right:auto;
+  bottom:calc(18px + var(--safe-b));margin:0;transform:none;
+  opacity:.66;transition:opacity .15s}
 .stick.fixed.active{opacity:1}
 .stick .knob{width:62px;height:62px;border-radius:50%;
   background:radial-gradient(circle at 42% 34%,#fdfdfd,#c8ccd6);
@@ -141,30 +144,22 @@ input[type=text]:focus{border-color:var(--accent)}
 .stick.aim{border-style:dashed;border-color:rgba(255,183,3,.5)}
 .stick.aim .knob{background:radial-gradient(circle at 42% 34%,#ffe6a6,#e8a417)}
 
-/* ------- botones de accion: forma, icono y etiqueta legible ------------- */
-.buttons{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(16px + var(--safe-b));
-  width:184px;height:164px;pointer-events:none}
-.gbtn{position:absolute;pointer-events:auto;border-radius:50%;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  border:2px solid rgba(255,255,255,.28);
-  box-shadow:0 5px 0 rgba(0,0,0,.35),0 8px 18px rgba(0,0,0,.45);
-  transition:transform .06s,box-shadow .06s,filter .1s}
-.gbtn .ic{line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
-.gbtn .lb{font-size:.52rem;font-weight:800;letter-spacing:.06em;opacity:.92}
-.gbtn:active,.gbtn.down{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.35),0 3px 8px rgba(0,0,0,.4);filter:brightness(1.12)}
-/* Coger: la accion principal, la mas grande y a mano del pulgar */
-.gbtn.grab{right:0;bottom:10px;width:86px;height:86px;color:#2a1a00;
-  background:radial-gradient(circle at 40% 32%,#ffe08a,#f0a21c 62%,#c97c05)}
-.gbtn.grab .ic{font-size:1.6rem}
-/* Cortar: se pulsa repetidamente */
-.gbtn.chop{right:78px;bottom:74px;width:68px;height:68px;color:#04222c;
-  background:radial-gradient(circle at 40% 32%,#b8f0ff,#3fb6dd 62%,#1d84a8)}
-.gbtn.chop .ic{font-size:1.25rem}
-/* Correr */
-.gbtn.dash{right:4px;bottom:106px;width:58px;height:58px;color:#f4f2ff;
-  background:radial-gradient(circle at 40% 32%,#a99bf0,#6b4fd8 62%,#4a32ad)}
-.gbtn.dash .ic{font-size:1.15rem;font-weight:900}
-.gbtn.dash .lb{font-size:.46rem}
+/* ------- boton unico de accion, con el mismo lenguaje que el joystick ---- */
+.buttons{position:absolute;right:calc(18px + var(--safe-r));bottom:calc(18px + var(--safe-b));
+  width:132px;height:132px;pointer-events:none}
+.gbtn{position:absolute;inset:0;pointer-events:auto;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  color:#f4f2ea;
+  border:2px solid rgba(255,255,255,.20);
+  background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.13),rgba(0,0,0,.30));
+  box-shadow:inset 0 2px 10px rgba(0,0,0,.45),0 3px 14px rgba(0,0,0,.35);
+  opacity:.66;transition:opacity .12s,transform .06s}
+.gbtn .ic{font-size:2rem;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.gbtn .lb{font-size:.52rem;font-weight:800;letter-spacing:.08em;opacity:.85}
+.gbtn.down,.gbtn:active{opacity:1;transform:scale(.94)}
+/* mientras friegas, el boton se llena para que se vea que hay que mantener */
+.gbtn.holding{opacity:1;border-color:rgba(99,200,236,.85);
+  background:radial-gradient(circle at 50% 38%,rgba(99,200,236,.35),rgba(0,0,0,.35))}
 .micbtn{position:absolute;pointer-events:auto;left:calc(10px + var(--safe-l));top:calc(50% - 26px);
   width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.2);
   background:rgba(24,26,36,.8);color:#9aa0b5;font-size:.62rem;font-weight:800}
