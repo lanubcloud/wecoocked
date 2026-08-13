@@ -52,9 +52,46 @@
     throwRange: 7,
     scenery: null,
 
+    // Imagenes opcionales que sustituyen al arte dibujado. Ver assets/LEEME.md
+    assets: { listo: false, floor: null, wall: null, counter: null, chef: {}, ing: {} },
+
+    /**
+     * Carga public/assets/sprites.json si existe. Si no esta, o si una imagen
+     * falla, se sigue usando el dibujo por defecto: el juego nunca se rompe
+     * por un archivo de arte que falte.
+     */
+    loadAssets() {
+      return fetch('assets/sprites.json', { cache: 'no-cache' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((cfg) => {
+          if (!cfg) return;
+          const img = (src) => new Promise((res) => {
+            if (!src) return res(null);
+            const i = new Image();
+            i.onload = () => res(i);
+            i.onerror = () => { console.warn('[assets] no se pudo cargar', src); res(null); };
+            i.src = src;
+          });
+          const tareas = [];
+          for (const k of ['floor', 'wall', 'counter']) {
+            tareas.push(img(cfg[k]).then((i) => { this.assets[k] = i; }));
+          }
+          for (const d of ['abajo', 'lado', 'arriba']) {
+            tareas.push(img(cfg.chef && cfg.chef[d]).then((i) => { this.assets.chef[d] = i; }));
+          }
+          for (const k in (cfg.ingredientes || {})) {
+            tareas.push(img(cfg.ingredientes[k]).then((i) => { this.assets.ing[k] = i; }));
+          }
+          return Promise.all(tareas);
+        })
+        .catch(() => null)
+        .then(() => { this.assets.listo = true; this.bgDirty = true; this.iconCache = {}; });
+    },
+
     init(canvas) {
       this.cv = canvas;
       this.ctx = canvas.getContext('2d');
+      this.loadAssets();
       window.addEventListener('resize', () => this.resize());
       if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
       this.resize();
@@ -218,6 +255,11 @@
      */
     drawFood(t, state, cx, cy, s) {
       const ctx = this.ctx;
+      const propio = this.assets.ing[t + ':' + state] || this.assets.ing[t];
+      if (propio) {
+        ctx.drawImage(propio, cx - s * 0.42, cy - s * 0.42, s * 0.84, s * 0.84);
+        return;
+      }
       if (state === 'burnt') {
         this.ell(cx, cy, s * 0.34, s * 0.24, '#241b12');
         this.ell(cx - s * 0.1, cy - s * 0.08, s * 0.12, s * 0.08, '#3a2d1d');
@@ -523,10 +565,14 @@
           const c = this.cellAt(x, y);
           if (!c || c.type === 'wall') continue;
           const px = this.sx(x), py = this.sy(y);
-          ctx.fillStyle = (x + y) % 2 ? C.tileA : C.tileB;
-          ctx.fillRect(px, py, this.tw + 0.6, this.th + 0.6);
-          ctx.strokeStyle = C.grout; ctx.lineWidth = 1;
-          ctx.strokeRect(px + 0.5, py + 0.5, this.tw, this.th);
+          if (this.assets.floor) {
+            ctx.drawImage(this.assets.floor, px, py, this.tw + 0.6, this.th + 0.6);
+          } else {
+            ctx.fillStyle = (x + y) % 2 ? C.tileA : C.tileB;
+            ctx.fillRect(px, py, this.tw + 0.6, this.th + 0.6);
+            ctx.strokeStyle = C.grout; ctx.lineWidth = 1;
+            ctx.strokeRect(px + 0.5, py + 0.5, this.tw, this.th);
+          }
         }
       }
       // sombra que proyectan los muebles sobre el suelo de debajo
@@ -569,6 +615,14 @@
     drawBlock(c) {
       const ctx = this.ctx, s = this.tw;
       let b;
+      // Sustitucion por imagen propia, si la hay para este tipo de mueble
+      const img = c.type === 'wall' ? this.assets.wall
+                : c.type === 'counter' ? this.assets.counter : null;
+      if (img) {
+        const px = this.sx(c.x), py = this.sy(c.y) - this.bh;
+        ctx.drawImage(img, px, py, this.tw, this.th + this.bh);
+        return;
+      }
       switch (c.type) {
         case 'wall':
           b = this.block(c.x, c.y, C.wallFace, C.wallTop, 3);
@@ -946,6 +1000,23 @@
 
       const baseY = py - r * 0.5 - bob;
 
+      // Avatar propio: se dibuja la imagen y encima solo el objeto en mano y
+      // el nombre. La franja de color del equipo se pinta bajo los pies para
+      // que se siga sabiendo de quien es cada cocinero.
+      const sprite = this.assets.chef[mirando];
+      if (sprite) {
+        const alto = r * 3.1, ancho = alto * (sprite.width / sprite.height);
+        ctx.save();
+        if (mirando === 'lado' && flip < 0) {
+          ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0);
+        }
+        ctx.drawImage(sprite, px - ancho / 2, py - alto + r * 0.28, ancho, alto);
+        ctx.restore();
+        this.ell(px, py + r * 0.3, r * 0.5, r * 0.16, col);
+        this.drawChefExtras(ch, px, py, r, s, col, flip);
+        return;
+      }
+
       // piernas + zapatos
       ctx.fillStyle = '#2b3040';
       ctx.fillRect(px - r * 0.4, baseY + r * 0.4, r * 0.32, r * 0.52 + paso * r * 0.15);
@@ -1001,9 +1072,17 @@
         ctx.beginPath(); ctx.arc(px + ex * 0.6, hy + r * 0.2, r * 0.13, 0.3, Math.PI - 0.3); ctx.stroke();
       }
 
+      this.drawChefExtras(ch, px, py, r, s, col, flip);
+    },
+
+    /** Objeto en mano, cuchillo, nombre y flecha: comun al avatar dibujado
+     *  y a los sprites que ponga el jugador. */
+    drawChefExtras(ch, px, py, r, s, col, flip) {
+      const ctx = this.ctx;
+
       // objeto en las manos: con fondo blanco para que se vea SIEMPRE
       if (ch.h) {
-        const iy = baseY + r * 0.02 + Math.sin(this.t * 3) * r * 0.04;
+        const iy = py - r * 0.48 + Math.sin(this.t * 3) * r * 0.04;
         this.ell(px, iy, r * 0.52, r * 0.42, 'rgba(255,255,255,.94)');
         ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.ellipse(px, iy, r * 0.52, r * 0.42, 0, 0, 7); ctx.stroke();
@@ -1014,7 +1093,7 @@
       if (ch.c) {
         const osc = Math.sin(this.t * 26) * 0.7;
         ctx.save();
-        ctx.translate(px + r * 0.8 * flip, baseY - r * 0.4);
+        ctx.translate(px + r * 0.8 * flip, py - r * 0.9);
         ctx.rotate((-0.9 + osc) * flip);
         ctx.fillStyle = '#e7ebf5';
         this.rr(-r * 0.07, -r * 0.62, r * 0.14, r * 0.62, r * 0.05); ctx.fill();

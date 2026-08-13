@@ -1,0 +1,25 @@
+{
+  "_comentario": "Copia este archivo como sprites.json y deja solo las claves que quieras cambiar. Lee LEEME.md.",
+
+  "floor": "assets/suelo.png",
+  "wall": "assets/pared.png",
+  "counter": "assets/encimera.png",
+
+  "chef": {
+    "abajo": "assets/chef-frente.png",
+    "lado": "assets/chef-lado.png",
+    "arriba": "assets/chef-espalda.png"
+  },
+
+  "ingredientes": {
+    "salmon:raw": "assets/salmon.png",
+    "salmon:chopped": "assets/salmon-cortado.png",
+    "shrimp:raw": "assets/gamba.png",
+    "shrimp:chopped": "assets/gamba-cortada.png",
+    "cucumber:raw": "assets/pepino.png",
+    "cucumber:chopped": "assets/pepino-cortado.png",
+    "rice:raw": "assets/arroz-crudo.png",
+    "rice:cooked": "assets/arroz.png",
+    "nori:raw": "assets/nori.png"
+  }
+}

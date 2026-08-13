@@ -109,11 +109,11 @@
           el = document.createElement('div');
           el.className = 'ticket';
           // mismo arte que en la cocina, para que el pedido y el cajon coincidan
-          const plato = r ? `<img class="dish" alt="" src="${global.Render.dishIcon(r.items, 46)}">` : '';
+          const plato = r ? `<img class="dish" alt="" src="${global.Render.dishIcon(r.items, 72)}">` : '';
           const ings = r ? r.items.map((t) => {
             const prep = this.ing[t].prep;
             const st = prep === 'cook' ? 'cooked' : prep === 'chop' ? 'chopped' : 'raw';
-            return `<img alt="" src="${global.Render.iconFor(t, st, 26)}">`;
+            return `<img alt="" src="${global.Render.iconFor(t, st, 36)}">`;
           }).join('') : '';
           el.innerHTML = `<div class="bar"><i></i></div>${plato}<div class="ings">${ings}</div>`;
           this.ticketCache.set(o.id, el);

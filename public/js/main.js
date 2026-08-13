@@ -109,21 +109,44 @@
     const btn = $('#btn-install');
     let prompt = null;
 
+    // Ya instalado: no hay nada que ofrecer.
+    const instalado = window.matchMedia('(display-mode: standalone)').matches ||
+                      window.matchMedia('(display-mode: fullscreen)').matches ||
+                      window.navigator.standalone === true;
+    if (instalado) return;
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();          // usamos nuestro boton, no el del navegador
       prompt = e;
       btn.hidden = false;
+      btn.textContent = 'Instalar el juego';
     });
     window.addEventListener('appinstalled', () => { btn.hidden = true; prompt = null; });
 
+    // Chrome solo lanza beforeinstallprompt si le da la gana (necesita
+    // interaccion previa, y en iPhone no existe). Si no llega, se ensena el
+    // boton igualmente con las instrucciones manuales: mas vale explicarlo
+    // que dejar al jugador sin forma de instalarlo.
+    setTimeout(() => {
+      if (prompt || !btn.hidden) return;
+      btn.hidden = false;
+      btn.textContent = 'Como instalar el juego';
+    }, 2500);
+
     btn.addEventListener('click', async () => {
-      if (!prompt) return;
-      btn.disabled = true;
-      prompt.prompt();
-      await prompt.userChoice;
-      prompt = null;
-      btn.hidden = true;
-      btn.disabled = false;
+      if (prompt) {
+        btn.disabled = true;
+        prompt.prompt();
+        await prompt.userChoice;
+        prompt = null;
+        btn.hidden = true;
+        btn.disabled = false;
+        return;
+      }
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      alert(ios
+        ? 'En iPhone o iPad:\n\n1. Toca el boton Compartir (el cuadrado con la flecha)\n2. Baja y elige "Anadir a pantalla de inicio"\n3. Toca Anadir'
+        : 'En Android:\n\n1. Abre el menu del navegador (los tres puntos)\n2. Elige "Instalar aplicacion" o "Anadir a pantalla de inicio"\n3. Confirma');
     });
 
     if ('serviceWorker' in navigator) {

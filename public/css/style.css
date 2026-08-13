@@ -98,19 +98,27 @@ input[type=text]:focus{border-color:var(--accent)}
   bottom:auto}
 .hud-top{position:absolute;left:0;right:0;bottom:4px;
   display:flex;justify-content:space-between;align-items:flex-end;gap:.5rem}
-/* Tickets compactos: caben en la franja superior sin tapar la cocina */
-.orders{display:flex;gap:.3rem;flex-wrap:nowrap;align-items:flex-start}
-.ticket{background:#f7f4ea;color:#20232e;border-radius:7px;padding:.18rem .26rem;min-width:46px;
-  box-shadow:0 2px 6px rgba(0,0,0,.45);position:relative;overflow:hidden}
-.ticket .bar{height:3px;background:#dcd7c6;border-radius:2px;overflow:hidden;margin-bottom:.14rem}
+/* Tickets en horizontal: grandes y legibles sin crecer en altura, porque la
+   banda sobre la cocina es baja en un movil apaisado. */
+/* topado para que con 4 o 5 pedidos no empujen al marcador fuera de pantalla */
+.orders{display:flex;gap:.35rem;flex-wrap:nowrap;align-items:flex-end;
+  max-width:68%;overflow:hidden}
+.ticket{background:#f7f4ea;color:#20232e;border-radius:9px;padding:.22rem .3rem;
+  box-shadow:0 3px 9px rgba(0,0,0,.5);position:relative;overflow:hidden;
+  border:1px solid rgba(0,0,0,.12);
+  display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;
+  column-gap:.22rem;align-items:center}
+.ticket .bar{grid-column:1/-1;height:4px;background:#dcd7c6;border-radius:2px;overflow:hidden;margin-bottom:.16rem}
 .ticket .bar i{display:block;height:100%;background:var(--ok);transition:width .2s linear}
 .ticket.warn .bar i{background:#ffb703}
 .ticket.crit .bar i{background:#ff5757}
 .ticket.crit{animation:tkshake .5s infinite}
 @keyframes tkshake{0%,100%{transform:rotate(0)}25%{transform:rotate(-2deg)}75%{transform:rotate(2deg)}}
-.ticket .dish{display:block;width:30px;height:30px;margin:0 auto}
-.ticket .ings{display:flex;justify-content:center;gap:1px}
-.ticket .ings img{width:15px;height:15px;display:block}
+/* plato grande a la izquierda, ingredientes en fila a su derecha: el ticket
+   queda ancho pero bajo, que es lo que cabe sobre la cocina en apaisado */
+.ticket .dish{display:block;width:42px;height:42px}
+.ticket .ings{display:flex;flex-direction:row;align-items:center;gap:2px}
+.ticket .ings img{width:20px;height:20px;display:block}
 .hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem}
 .timer{font-size:1.5rem;font-weight:900;background:rgba(12,13,18,.7);padding:.05em .4em;border-radius:9px;
   font-variant-numeric:tabular-nums}
