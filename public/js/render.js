@@ -36,7 +36,15 @@
    * franja para apuntar crece un 22%.
    */
   const SQUASH = 0.88;
-  const BLOCK = 0.50;         // altura de los muebles, en anchos de casilla
+  /*
+   * Altura del costado de los muebles, en anchos de casilla. A 0,50 cada
+   * mueble se dibujaba levantado 23 px sobre su casilla: quedaba una banda
+   * oscura de 36 px debajo (costado + sombra) y, peor, el centro que veias
+   * estaba un 28% de casilla mas arriba del sitio donde el juego tenia la
+   * estacion. Apuntabas a donde se veia y no era ahi. A 0 el mueble ocupa
+   * exactamente su casilla: lo que ves es lo que hay.
+   */
+  const BLOCK = 0;
   // Alto que ocupan los tickets. No se reserva entero: la fila superior de la
   // cocina es borde invisible por su mitad izquierda, justo donde van los
   // pedidos, asi que pueden solaparla y solo hay que dejar libre lo que
@@ -275,9 +283,13 @@
       const ctx = this.ctx;
       const px = this.sx(x), py = this.sy(y);
       const w = this.tw, h = this.th, bh = this.bh;
-      ctx.fillStyle = faceCol;
-      this.rr(px, py - bh + h * 0.25, w, h * 0.75 + bh, r || 4);
-      ctx.fill();
+      // Sin costado no hay nada que pintar debajo: la cara quedaria entera
+      // tapada por la tapa, y son dos rellenos por mueble en cada fotograma.
+      if (bh > 0) {
+        ctx.fillStyle = faceCol;
+        this.rr(px, py - bh + h * 0.25, w, h * 0.75 + bh, r || 4);
+        ctx.fill();
+      }
       ctx.fillStyle = topCol;
       this.rr(px, py - bh, w, h, r || 4);
       ctx.fill();
@@ -680,14 +692,18 @@
           }
         }
       }
-      // sombra que proyectan los muebles sobre el suelo de debajo
-      ctx.fillStyle = 'rgba(40,26,10,.16)';
-      for (let y = 0; y < this.map.h - 1; y++) {
-        for (let x = 0; x < this.map.w; x++) {
-          const c = this.cellAt(x, y);
-          const abajo = this.cellAt(x, y + 1);
-          if (c && SOLID.has(c.type) && abajo && !SOLID.has(abajo.type)) {
-            ctx.fillRect(this.sx(x), this.sy(y + 1), this.tw + 0.5, this.th * 0.34);
+      // La sombra proyectada sobre el suelo solo tiene sentido si el mueble
+      // esta levantado. Con muebles planos era una banda oscura de 14 px que
+      // no representaba nada y ensuciaba el suelo justo por donde se anda.
+      if (this.bh > 0) {
+        ctx.fillStyle = 'rgba(40,26,10,.16)';
+        for (let y = 0; y < this.map.h - 1; y++) {
+          for (let x = 0; x < this.map.w; x++) {
+            const c = this.cellAt(x, y);
+            const abajo = this.cellAt(x, y + 1);
+            if (c && SOLID.has(c.type) && abajo && !SOLID.has(abajo.type)) {
+              ctx.fillRect(this.sx(x), this.sy(y + 1), this.tw + 0.5, this.th * 0.34);
+            }
           }
         }
       }
