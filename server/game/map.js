@@ -4,6 +4,9 @@
  Mapa "Negi Sushi" (replica jugable del pantallazo de referencia).
 
  #  muro / decorado         .  suelo
+ -  borde invisible: frena al cocinero pero no se dibuja nada. Sirve para
+    cerrar la cocina por arriba y por abajo sin gastar una fila en pintar
+    una pared, y asi queda mas sitio util en pantalla.
  C  encimera                B  tabla de cortar
  K  olla arrocera           D  pila de platos limpios
  W  fregadero               X  devolucion de platos sucios
@@ -30,8 +33,7 @@
               la devolucion de sucios
 */
 const LAYOUT = [
-  '##################',
-  '##BCB#####CKKKKC##',
+  '#---------CKKKKC-#',
   '#C..............V#',
   '#N..............V#',
   '#C..CCCC..CCCC..V#',
@@ -39,12 +41,12 @@ const LAYOUT = [
   '#C..............C#',
   '#P..............S#',
   '#................#',
-  '#...BCB.T.T.DWWX.#',
-  '##################',
+  '#--BCB--T-T-DWWX-#',
 ];
 
 const LEGEND = {
   '#': { type: 'wall',    solid: true,  interactive: false },
+  '-': { type: 'edge',    solid: true,  interactive: false },
   '.': { type: 'floor',   solid: false, interactive: false },
   'C': { type: 'counter', solid: true,  interactive: true },
   'B': { type: 'board',   solid: true,  interactive: true },
@@ -84,15 +86,15 @@ function buildMap() {
     w, h, cells,
     layout: LAYOUT,
     spawns: [
-      { x: 4.5, y: 8.5 },
-      { x: 8.5, y: 8.5 },
-      { x: 12.5, y: 8.5 },
+      { x: 4.5, y: 7.5 },
+      { x: 8.5, y: 7.5 },
+      { x: 12.5, y: 7.5 },
     ],
     // Decorados puramente visuales (el cliente los pinta encima de los muros)
     deco: [
-      { type: 'sign', text: 'NEGI SUSHI', x: 5.1, y: 0.05, w: 4.8, h: 0.88 },
+      { type: 'sign', text: 'NEGI SUSHI', x: 4.4, y: 0.06, w: 5.2, h: 0.86 },
       { type: 'lantern', x: 0.5, y: 3.5 },
-      { type: 'lantern', x: 17.5, y: 7.5 },
+      { type: 'lantern', x: 17.5, y: 6.5 },
     ],
   };
 }

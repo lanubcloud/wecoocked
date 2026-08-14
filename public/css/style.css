@@ -100,9 +100,11 @@ input[type=text]:focus{border-color:var(--accent)}
   display:flex;justify-content:space-between;align-items:flex-end;gap:.5rem}
 /* Tickets en horizontal: grandes y legibles sin crecer en altura, porque la
    banda sobre la cocina es baja en un movil apaisado. */
-/* topado para que con 4 o 5 pedidos no empujen al marcador fuera de pantalla */
+/* El ancho lo calcula Render segun donde empieza la primera estacion de la
+   fila superior: asi los pedidos nunca tapan las cocinas ni empujan al
+   marcador, haya los que haya en cola. */
 .orders{display:flex;gap:.35rem;flex-wrap:nowrap;align-items:flex-end;
-  max-width:68%;overflow:hidden}
+  max-width:var(--hud-orders-max, 60%);overflow:hidden}
 .ticket{background:#f7f4ea;color:#20232e;border-radius:9px;padding:.22rem .3rem;
   box-shadow:0 3px 9px rgba(0,0,0,.5);position:relative;overflow:hidden;
   border:1px solid rgba(0,0,0,.12);

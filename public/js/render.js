@@ -10,12 +10,14 @@
   'use strict';
 
   const LEGEND = {
-    '#': 'wall', '.': 'floor', 'C': 'counter', 'B': 'board', 'K': 'cooker',
+    '#': 'wall', '-': 'edge', '.': 'floor', 'C': 'counter', 'B': 'board', 'K': 'cooker',
     'D': 'plates', 'W': 'sink', 'X': 'return', 'T': 'trash', 'V': 'serve',
     'N': 'crate', 'R': 'crate', 'P': 'crate', 'G': 'crate', 'S': 'crate',
   };
   const CRATE_ING = { N: 'nori', R: 'rice', P: 'cucumber', G: 'shrimp', S: 'salmon' };
-  const SOLID = new Set(['wall', 'counter', 'board', 'cooker', 'plates', 'sink', 'return', 'trash', 'serve', 'crate']);
+  const SOLID = new Set(['wall', 'edge', 'counter', 'board', 'cooker', 'plates', 'sink', 'return', 'trash', 'serve', 'crate']);
+  // solidas pero sin nada con lo que interactuar
+  const MUDAS = new Set(['wall', 'edge']);
 
   const TEAM_PALETTES = {
     A: ['#e8443c', '#ef8a2b', '#d9b310'],
@@ -125,7 +127,7 @@
     },
     interactiveAt(x, y) {
       const c = this.cellAt(x, y);
-      return !!c && SOLID.has(c.type) && c.type !== 'wall';
+      return !!c && SOLID.has(c.type) && !MUDAS.has(c.type);
     },
 
     /** Misma tolerancia que el servidor: la casilla interactiva mas alineada. */
@@ -175,9 +177,17 @@
       r.setProperty('--game-left', Math.round(this.sx(0)) + 'px');
       r.setProperty('--game-right', Math.round(this.cw - this.sx(this.map.w)) + 'px');
       r.setProperty('--game-top', Math.round(this.sy(0) - this.bh) + 'px');
-      // Primera fila jugable: los tickets pueden solapar la fila de muros
-      // (es decorativa) pero nunca las tablas de cortar.
+      // Los tickets pueden bajar hasta la fila 1: la fila 0 solo tiene borde
+      // invisible en su mitad izquierda, que es justo donde van.
       r.setProperty('--game-play-top', Math.round(this.sy(1) - this.bh) + 'px');
+      // Ancho seguro: hasta la primera estacion de la fila superior, para que
+      // los pedidos jamas tapen las cocinas por muchos que haya en cola.
+      let corte = this.map.w;
+      for (let x = 0; x < this.map.w; x++) {
+        const c = this.cellAt(x, 0);
+        if (c && SOLID.has(c.type) && !MUDAS.has(c.type)) { corte = x; break; }
+      }
+      r.setProperty('--hud-orders-max', Math.max(120, Math.round(this.sx(corte) - this.sx(0) - 10)) + 'px');
       r.setProperty('--game-bottom', Math.round(this.chh - this.sy(this.map.h)) + 'px');
     },
 
@@ -632,7 +642,7 @@
       for (let y = 0; y < this.map.h; y++) {
         for (let x = 0; x < this.map.w; x++) {
           const c = this.cellAt(x, y);
-          if (!c || c.type === 'wall') continue;
+          if (!c || MUDAS.has(c.type)) continue;
           const px = this.sx(x), py = this.sy(y);
           if (this.assets.floor) {
             ctx.drawImage(this.assets.floor, px, py, this.tw + 0.6, this.th + 0.6);
@@ -684,6 +694,7 @@
     drawBlock(c) {
       const ctx = this.ctx, s = this.tw;
       let b;
+      if (c.type === 'edge') return;   // borde invisible: frena pero no se pinta
       // Sustitucion por imagen propia, si la hay para este tipo de mueble
       const img = c.type === 'wall' ? this.assets.wall
                 : c.type === 'counter' ? this.assets.counter : null;
@@ -1276,11 +1287,11 @@
   function buildScenery(map) {
     const mesas = [];
     const cols = ['#c8564b', '#4b7ec8', '#48a06a', '#c8a24a', '#8a5fc0', '#d0793f'];
+    // Solo a los lados: arriba van los pedidos y abajo los controles, y ahi
+    // el comedor solo estorbaria.
     const puestos = [
-      [-0.75, 2.0], [-0.75, 5.2], [-0.75, 7.6],
-      [map.w + 0.75, 1.6], [map.w + 0.75, 4.2], [map.w + 0.75, 7.2],
-      [3.0, -0.8], [7.5, -0.8], [11.5, -0.8],
-      [2.5, map.h + 0.8], [7.0, map.h + 0.8], [11.0, map.h + 0.8],
+      [-0.8, 1.2], [-0.8, 3.6], [-0.8, 6.0], [-0.8, 8.2],
+      [map.w + 0.8, 1.0], [map.w + 0.8, 3.4], [map.w + 0.8, 5.8], [map.w + 0.8, 8.0],
     ];
     puestos.forEach((p, i) => {
       const n = 2 + (i % 2);
@@ -1291,9 +1302,8 @@
       });
     });
     const camareros = [
-      { puntos: [{ x: -0.5, y: 1 }, { x: -0.5, y: map.h - 1 }], i: 0, t: 0, vel: 0.14, seed: 0.4 },
-      { puntos: [{ x: map.w + 0.5, y: map.h - 1 }, { x: map.w + 0.5, y: 1 }], i: 0, t: 0.5, vel: 0.11, seed: 2.1 },
-      { puntos: [{ x: 1.5, y: map.h + 0.5 }, { x: map.w - 1.5, y: map.h + 0.5 }], i: 0, t: 0.2, vel: 0.08, seed: 3.7 },
+      { puntos: [{ x: -0.45, y: 0.5 }, { x: -0.45, y: map.h - 0.5 }], i: 0, t: 0, vel: 0.14, seed: 0.4 },
+      { puntos: [{ x: map.w + 0.45, y: map.h - 0.5 }, { x: map.w + 0.45, y: 0.5 }], i: 0, t: 0.5, vel: 0.11, seed: 2.1 },
     ];
     return { mesas, camareros };
   }
