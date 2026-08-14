@@ -227,4 +227,3 @@ input[type=text]:focus{border-color:var(--accent)}
   text-align:center;font-weight:700;z-index:50;padding:2rem}
 .rotate small{font-weight:400;color:var(--muted)}
 body.needs-landscape .rotate{display:flex}
-.netstat{position:fixed;left:calc(4px + var(--safe-l));bottom:calc(2px + var(--safe-b));font-size:.6rem;color:#5b6076;z-index:40;pointer-events:none}

@@ -43,7 +43,15 @@
   // sobresalga por encima de ella.
   const HUD_H = 64;
   const PAD = 6;
-  const MARGEN_LADO = 0.03;   // fraccion del ancho que asoma del comedor
+  /*
+   * Fraccion del ancho que asoma del comedor por cada lado. Manda mas de lo
+   * que parece: es el ancho lo que limita el tamano de casilla, no el alto,
+   * asi que cada pixel de margen sale directamente del tamano de los cubos.
+   * Al 3% se comia 25 px por lado en un movil, y ese trozo queda casi todo
+   * debajo de los joysticks, que van justo en las esquinas. Al 1,5% la
+   * casilla crece un 3% y el comedor se sigue viendo asomar por los lados.
+   */
+  const MARGEN_LADO = 0.015;
 
   const C = {
     tileA: '#efe4cb', tileB: '#e4d7b9', grout: 'rgba(120,102,72,.14)',

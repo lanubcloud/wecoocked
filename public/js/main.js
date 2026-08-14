@@ -294,11 +294,6 @@
     el.classList.toggle('on', on);
     el.classList.toggle('talking', Voice.enabled && Voice.speaking);
     el.textContent = !Voice.enabled ? 'MIC' : Voice.ptt ? 'PTT' : on ? 'ON' : 'OFF';
-    const n = Voice.peers.size;
-    // 'ws' = WebSocket (lo bueno). 'polling' = modo lento, hay algo que revisar.
-    const tr = Net.transport() === 'websocket' ? 'ws' : Net.transport();
-    $('#netstat').textContent =
-      `${Net.ping}ms · ${tr} · buffer ${Math.round(G.interp)}ms · voz ${Voice.enabled ? n : 'off'}`;
   }
 
   // ------------------------------------------------------------------ red
