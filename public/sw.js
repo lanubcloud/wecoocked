@@ -7,19 +7,19 @@
  * Al desplegar hay que subir CACHE junto con el ?v= de index.html; asi el
  * navegador se trae los archivos nuevos y tira los viejos.
  */
-const CACHE = 'wecoocked-v28';
+const CACHE = 'wecoocked-v29';
 
 const ESTATICOS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './css/style.css?v=28',
-  './js/net.js?v=28',
-  './js/input.js?v=28',
-  './js/voice.js?v=28',
-  './js/render.js?v=28',
-  './js/ui.js?v=28',
-  './js/main.js?v=28',
+  './css/style.css?v=29',
+  './js/net.js?v=29',
+  './js/input.js?v=29',
+  './js/voice.js?v=29',
+  './js/render.js?v=29',
+  './js/ui.js?v=29',
+  './js/main.js?v=29',
   './img/icon-192.png',
   './img/icon-512.png',
 ];
@@ -50,15 +50,28 @@ self.addEventListener('fetch', (e) => {
   // el juego en vivo no se cachea jamas
   if (url.pathname.startsWith('/socket.io/') || url.pathname === '/healthz') return;
 
-  // Cache primero: es lo que evita volver a descargar y reprocesar en cada
-  // partida. Si no esta, se pide a la red y se guarda para la proxima.
+  const guarda = (res) => {
+    if (res && res.status === 200 && res.type === 'basic') {
+      const copia = res.clone();
+      caches.open(CACHE).then((c) => c.put(req, copia));
+    }
+    return res;
+  };
+
+  // El HTML va a RED PRIMERO. Es la pagina la que dice que version de cada
+  // archivo tocan (los ?v=), asi que si se sirve de cache el movil se queda
+  // pidiendo la version vieja y no ve los cambios hasta la segunda recarga,
+  // que es justo lo que estaba pasando. Pesa 20 KB y solo se pide al abrir;
+  // si no hay red, tira de la copia guardada y el juego sigue abriendo.
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    e.respondWith(fetch(req).then(guarda).catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html'))));
+    return;
+  }
+
+  // Todo lo demas, cache primero: es lo que evita volver a descargar y
+  // reprocesar en cada partida. Lleva ?v= en la URL, asi que una version
+  // nueva es una entrada nueva y nunca se sirve la vieja por error.
   e.respondWith(
-    caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-      if (res && res.status === 200 && res.type === 'basic') {
-        const copia = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copia));
-      }
-      return res;
-    }).catch(() => caches.match('./index.html')))
+    caches.match(req).then((hit) => hit || fetch(req).then(guarda).catch(() => caches.match('./index.html')))
   );
 });
