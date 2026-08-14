@@ -10,3 +10,17 @@
 *.css  text eol=lf
 *.html text eol=lf
 *.md    text eol=lf
+
+# Binarios: marcados explicitamente para que la regla de arriba no les toque
+# los saltos de linea. Git suele detectarlos solo, pero si falla el PNG llega
+# corrupto al servidor y el icono deja de verse sin ningun error visible.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.mp3  binary
+*.ogg  binary
+*.wav  binary
+*.zip  binary

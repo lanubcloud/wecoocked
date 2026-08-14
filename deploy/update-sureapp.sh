@@ -62,6 +62,29 @@ done
 echo "    todos los modulos del servidor OK"
 
 echo
+# Los iconos son la causa habitual de que no salga "Instalar": si faltan o
+# llegan corruptos, el navegador descarta la aplicacion sin decir nada.
+echo "==> Iconos de la aplicacion"
+faltan=0
+for f in $(node -e "
+  const fs = require('fs');
+  const m = JSON.parse(fs.readFileSync('public/manifest.webmanifest', 'utf8'));
+  console.log([...new Set(m.icons.map(i => i.src))].join(' '));
+"); do
+  ruta="public/$f"
+  if [[ ! -f "$ruta" ]]; then
+    echo "    FALTA $ruta" >&2; faltan=1
+  elif [[ "$(head -c 8 "$ruta" | od -An -tx1 | tr -d ' \n')" != "89504e470d0a1a0a" ]]; then
+    echo "    CORRUPTO $ruta (no es un PNG valido)" >&2; faltan=1
+  else
+    echo "    OK $ruta ($(stat -c%s "$ruta") bytes)"
+  fi
+done
+if [[ $faltan -eq 1 ]]; then
+  echo "    -> sin iconos validos el navegador NO ofrecera instalar la app." >&2
+  echo "       Regenera con: node deploy/make-icons.js  y vuelve a subirlos." >&2
+fi
+
 # El service worker cachea los assets por su ?v=. Si cambio algo de public/
 # pero no subio la version, los moviles seguirian con el juego viejo.
 if git diff --name-only "$ANTES" HEAD | grep -q '^public/' ; then

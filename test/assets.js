@@ -49,6 +49,33 @@ ok(iconosOk, 'los iconos del manifest existen, son PNG y miden lo que declaran')
 ok(man.icons.some((i) => i.purpose === 'maskable'),
    'hay un icono maskable (si no, Android lo recorta mal al instalarlo)');
 
+// --- 4b. estar en disco no basta: si no estan versionados nunca llegan al
+//        servidor y el navegador deja de ofrecer la instalacion en silencio
+{
+  const { execSync } = require('child_process');
+  let seguidos = '';
+  try {
+    seguidos = execSync('git ls-files public/icons', { cwd: ROOT, encoding: 'utf8' });
+  } catch (_) { seguidos = null; }
+  if (seguidos === null) {
+    ok(true, 'sin git disponible: no se comprueba el seguimiento de los iconos');
+  } else {
+    const sinSeguir = man.icons
+      .map((i) => 'public/' + i.src)
+      .filter((p, idx, arr) => arr.indexOf(p) === idx)
+      .filter((p) => !seguidos.includes(p.replace(/\\/g, '/')));
+    ok(sinSeguir.length === 0,
+       'los iconos estan versionados en git ' + JSON.stringify(sinSeguir));
+  }
+}
+
+// --- 4c. los binarios no deben pasar por la normalizacion de saltos de linea
+{
+  const attrs = leer('.gitattributes');
+  ok(/\*\.png\s+binary/.test(attrs),
+     '.gitattributes marca los PNG como binarios (si no, pueden llegar corruptos)');
+}
+
 // --- 5. el fondo estatico se cachea: la senal es que exista buildStatic y que
 //        el bucle de dibujo copie el lienzo en vez de repintar el suelo
 const render = leer('public/js/render.js');
