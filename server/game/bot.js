@@ -16,7 +16,8 @@ const LEVELS = {
 
 const ARRIVE = 0.22;      // margen para dar por buena la casilla destino
 const BRAKE = 0.55;       // distancia a la que empieza a frenar
-const STUCK_TIME = 1.4;   // segundos sin avanzar antes de recalcular la ruta
+const SIN_MEJORA = 1.1;   // segundos sin acercarse al destino antes de esquivar
+const EVADIR = 0.5;       // segundos apartandose de lado para deshacer el atasco
 
 /**
  * Bot cocinero. Juega con exactamente las mismas reglas que un humano:
@@ -37,10 +38,11 @@ class Bot {
     this.path = null;
     this.pathIdx = 0;
     this.wait = this.level.react;
-    this.stuck = 0;
-    this.lastX = 0;
-    this.lastY = 0;
     this.replanCooldown = 0;
+    this.mejorDist = Infinity;   // distancia mas corta lograda al destino actual
+    this.sinMejora = 0;          // segundos sin acercarse
+    this.evadir = 0;             // segundos restantes de maniobra de esquiva
+    this.evx = 0; this.evy = 0;
   }
 
   get chef() { return this.eng.chefs.get(this.id); }
@@ -150,6 +152,9 @@ class Bot {
     this.stepIdx = 0;
     this.path = null;
     this.standTile = null;
+    this.mejorDist = Infinity;
+    this.sinMejora = 0;
+    this.evadir = 0;
     const ch = this.chef;
     if (ch) { ch.hold = false; ch.mx = 0; ch.my = 0; }
   }
@@ -182,7 +187,15 @@ class Bot {
       this.path = path.length ? path : [from];
       this.pathIdx = 0;
       this.standTile = this.path[this.path.length - 1];
-      this.stuck = 0;
+      this.mejorDist = Infinity;
+      this.sinMejora = 0;
+    }
+
+    // Maniobra de esquiva en curso: seguir de lado hasta terminarla.
+    if (this.evadir > 0) {
+      this.evadir -= dt;
+      ch.mx = this.evx; ch.my = this.evy;
+      return;
     }
 
     const wp = this.path[Math.min(this.pathIdx, this.path.length - 1)];
@@ -194,6 +207,28 @@ class Bot {
     if (d < (last ? ARRIVE : 0.3)) {
       if (last) { ch.mx = 0; ch.my = 0; return; }
       this.pathIdx++;
+      this.mejorDist = Infinity; this.sinMejora = 0;
+      return;
+    }
+
+    /*
+     * Atasco por empujon: dos cocineros que se cruzan se empujan y siguen
+     * moviendose, pero sin acercarse a su destino. Medir "se ha movido" no lo
+     * detecta; hay que medir "se ha acercado". Si no mejora la distancia al
+     * objetivo, el bot se aparta de lado y deja pasar.
+     */
+    if (d < this.mejorDist - 0.05) { this.mejorDist = d; this.sinMejora = 0; }
+    else this.sinMejora += dt;
+
+    if (this.sinMejora > SIN_MEJORA) {
+      this.sinMejora = 0;
+      this.mejorDist = Infinity;
+      const ux = dx / d, uy = dy / d;
+      const lado = Math.random() < 0.5 ? 1 : -1;
+      this.evx = -uy * lado; this.evy = ux * lado;   // perpendicular al objetivo
+      this.evadir = EVADIR;
+      this.path = null;                              // al volver, replanifica
+      ch.mx = this.evx; ch.my = this.evy;
       return;
     }
 
@@ -203,17 +238,6 @@ class Bot {
     ch.mx = (dx / d) * v;
     ch.my = (dy / d) * v;
     ch.fx = dx / d; ch.fy = dy / d;
-
-    // detector de atascos: si no avanzamos, recalculamos y probamos otra ruta
-    const moved = Math.hypot(ch.x - this.lastX, ch.y - this.lastY);
-    this.lastX = ch.x; this.lastY = ch.y;
-    this.stuck = moved < 0.01 ? this.stuck + dt : 0;
-    if (this.stuck > STUCK_TIME) {
-      this.stuck = 0;
-      this.path = null;
-      ch.mx = -ch.mx * 0.5 + (Math.random() - 0.5);   // pequeno rodeo
-      ch.my = -ch.my * 0.5 + (Math.random() - 0.5);
-    }
   }
 
   _face(ch, tile) {

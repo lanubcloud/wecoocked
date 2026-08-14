@@ -114,17 +114,23 @@ for (const level of ['facil', 'normal', 'dificil']) {
 // Con pasillos de una sola casilla, dos bots yendo en sentidos opuestos se
 // atascaban de por vida y la cocina entera se paraba (0 platos).
 {
+  // Muestra grande a proposito: el ultimo atasco aparecia en 1 de cada 240
+  // partidas, y con una docena de repeticiones no se habria visto nunca.
   const malos = [];
+  let jugadas = 0;
   for (let n = 2; n <= 3; n++) {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 30; i++) {
       const p = [];
       for (let k = 0; k < n; k++) p.push({ id: 'b' + k, name: 'B' + k, bot: true, level: 'dificil' });
       const eng = new Engine(map, 3000 + i, p, n);
       for (let t = 0; t < TICK_HZ * MATCH_SECONDS; t++) eng.step();
-      if (eng.delivered < 4) malos.push(n + ' bots -> ' + eng.delivered);
+      jugadas++;
+      if (eng.delivered < 6) malos.push(n + ' bots -> ' + eng.delivered + ' platos');
     }
   }
-  ok(malos.length === 0, 'ninguna partida con 2 o 3 bots se bloquea: ' + (malos.join(', ') || 'todas producen'));
+  ok(malos.length === 0,
+     'ninguna de las ' + jugadas + ' partidas con 2 o 3 bots se bloquea' +
+     (malos.length ? ': ' + malos.join(', ') : ''));
 }
 
 console.log(fails ? `\n${fails} FALLOS` : '\nTodo OK');

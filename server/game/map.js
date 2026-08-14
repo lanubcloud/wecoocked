@@ -32,14 +32,22 @@
    abajo   -> 2 mesas de picar, 2 basuras, platos limpios, 2 lavaplatos y
               la devolucion de sucios
 */
+/*
+ La fila 0 lleva las cocinas en el centro y borde invisible a los lados: en
+ esas esquinas van los pedidos (izquierda) y el marcador (derecha), tal como
+ en el plano. La fila 1 se deja libre para que el HUD pueda asomar sin tapar
+ ninguna estacion.
+*/
 const LAYOUT = [
-  '#---------CKKKKC-#',
+  '#-------CKKKKC---#',
+  '#................#',
   '#C..............V#',
   '#N..............V#',
   '#C..CCCC..CCCC..V#',
   '#R..............G#',
   '#C..............C#',
   '#P..............S#',
+  '#................#',
   '#................#',
   '#--BCB--T-T-DWWX-#',
 ];
@@ -86,13 +94,13 @@ function buildMap() {
     w, h, cells,
     layout: LAYOUT,
     spawns: [
-      { x: 4.5, y: 7.5 },
-      { x: 8.5, y: 7.5 },
-      { x: 12.5, y: 7.5 },
+      { x: 4.5, y: 8.5 },
+      { x: 8.5, y: 8.5 },
+      { x: 12.5, y: 8.5 },
     ],
     // Decorados puramente visuales (el cliente los pinta encima de los muros)
     deco: [
-      { type: 'sign', text: 'NEGI SUSHI', x: 4.4, y: 0.06, w: 5.2, h: 0.86 },
+      { type: 'sign', text: 'NEGI SUSHI', x: 2.9, y: 0.06, w: 4.6, h: 0.86 },
       { type: 'lantern', x: 0.5, y: 3.5 },
       { type: 'lantern', x: 17.5, y: 6.5 },
     ],

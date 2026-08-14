@@ -30,10 +30,13 @@
 
   const SQUASH = 0.72;        // alto/ancho de cada casilla (perspectiva 3/4)
   const BLOCK = 0.50;         // altura de los muebles, en anchos de casilla
-  // Franja reservada arriba para los tickets de pedidos: la cocina empieza
-  // por debajo y el HUD nunca tapa las tablas de cortar.
-  const PAD_TOP = 50;
+  // Alto que ocupan los tickets. No se reserva entero: la fila superior de la
+  // cocina es borde invisible por su mitad izquierda, justo donde van los
+  // pedidos, asi que pueden solaparla y solo hay que dejar libre lo que
+  // sobresalga por encima de ella.
+  const HUD_H = 64;
   const PAD = 6;
+  const MARGEN_LADO = 0.03;   // fraccion del ancho que asoma del comedor
 
   const C = {
     tileA: '#efe4cb', tileB: '#e4d7b9', grout: 'rgba(120,102,72,.14)',
@@ -157,8 +160,16 @@
       this.cv.width = Math.round(w * dpr);
       this.cv.height = Math.round(h * dpr);
       if (!this.map) return;
-      const lado = Math.max(PAD, w * 0.045);
-      this.tw = Math.min((w - lado * 2) / this.map.w, (h - PAD_TOP - PAD) / (this.map.h * SQUASH));
+      // El hueco de arriba depende del alto de casilla, y el alto de casilla
+      // depende del hueco: se resuelve en dos pasadas, que convergen de sobra.
+      const lado = Math.max(PAD, w * MARGEN_LADO);
+      const anchoMax = (w - lado * 2) / this.map.w;
+      this.padTop = HUD_H;
+      for (let i = 0; i < 2; i++) {
+        const t = Math.min(anchoMax, (h - this.padTop - PAD) / (this.map.h * SQUASH));
+        this.padTop = Math.max(PAD, HUD_H - t * SQUASH);
+      }
+      this.tw = Math.min(anchoMax, (h - this.padTop - PAD) / (this.map.h * SQUASH));
       this.th = this.tw * SQUASH;
       this.bh = this.tw * BLOCK;
       this.cam.x = this.map.w / 2;
@@ -215,7 +226,7 @@
     },
 
     sx(x) { return (x - this.cam.x) * this.tw + this.cw / 2; },
-    sy(y) { return (y - this.cam.y) * this.th + this.chh / 2 + PAD_TOP / 2; },
+    sy(y) { return (y - this.cam.y) * this.th + this.chh / 2 + (this.padTop || PAD) / 2; },
     follow() { /* camara fija centrada */ },
 
     // -------------------------------------------------------------- helpers

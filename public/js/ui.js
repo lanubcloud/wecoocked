@@ -127,6 +127,9 @@
       for (const [id, el] of this.ticketCache) {
         if (!seen.has(id)) { el.remove(); this.ticketCache.delete(id); }
       }
+      // Con la cola llena los tickets se encogen para que quepan todos: es
+      // peor perder de vista un pedido que verlos algo mas pequenos.
+      wrap.classList.toggle('many', orders.length >= 4);
     },
 
     renderHud(state, myTeam) {
