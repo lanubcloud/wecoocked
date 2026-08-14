@@ -100,7 +100,14 @@ fi
 
 # Solo el codigo de server/ necesita reinicio: lo de public/ lo sirve Express
 # leyendolo del disco en cada peticion, asi que entra en vigor al recargar.
-if git diff --name-only "$ANTES" HEAD | grep -q '^server/'; then
+#
+# Ojo con el caso "ya estabas al dia": ahi el diff sale vacio y sin este primer
+# caso el script anunciaba "no hace falta reiniciar", que es justo lo contrario
+# de lo que toca si vienes de un despliegue con cambios de servidor sin aplicar.
+if [[ "$ANTES" == "$(git rev-parse HEAD)" ]]; then
+  echo "No habia nada nuevo que desplegar. Si el despliegue anterior toco"
+  echo "server/ y aun no has reiniciado desde el panel, sigue pendiente."
+elif git diff --name-only "$ANTES" HEAD | grep -q '^server/'; then
   echo "Ha cambiado codigo del SERVIDOR: hay que REINICIAR desde el panel."
 else
   echo "Solo han cambiado archivos del cliente: NO hace falta reiniciar,"
