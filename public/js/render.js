@@ -926,6 +926,14 @@
 
     drawTileRow(row, tiles) {
       const ctx = this.ctx, s = this.tw;
+      // Las barras de progreso van encima del mueble, pero las arroceras estan
+      // en la fila 0 y ahi arriba ya no queda cocina: solo el HUD. La barra del
+      // arroz caia en los ultimos pixeles del borde y el aviso de "listo" se
+      // salia de la pantalla. Cuando no hay hueco arriba se pasan debajo del
+      // mueble, sobre el suelo de la fila siguiente, que esta despejado. Se
+      // vuelca la barra en vez de bajar la cocina entera para no gastar el alto
+      // que acabamos de ganar agrandando las casillas.
+      const techo = this.sy(0) - this.bh;
       for (const key in tiles) {
         const i = +key;
         const c = this.cells[i];
@@ -934,8 +942,11 @@
         const px = this.sx(c.x), py = this.sy(c.y) - this.bh;
         const cx = px + this.tw / 2, cy = py + this.th / 2;
 
-        const barAt = (p, col) => this.overlays.push({ kind: 'bar', x: px + s * 0.12, y: py - 9, w: s * 0.76, h: 6, p, col });
-        const iconAt = (text, col) => this.overlays.push({ kind: 'icon', text, col, x: cx, y: py - 12, size: s * 0.42 });
+        const debajo = py - 12 < techo;
+        const barY = debajo ? this.sy(c.y + 1) + 3 : py - 9;
+        const icoY = debajo ? this.sy(c.y + 1) + 17 : py - 12;
+        const barAt = (p, col) => this.overlays.push({ kind: 'bar', x: px + s * 0.12, y: barY, w: s * 0.76, h: 6, p, col });
+        const iconAt = (text, col) => this.overlays.push({ kind: 'icon', text, col, x: cx, y: icoY, size: s * 0.42 });
 
         if (c.type === 'counter' || c.type === 'board') {
           if (st.i) this.drawItem(st.i, cx, cy - s * 0.04, s * 0.78, st.p);
@@ -1066,14 +1077,26 @@
       ctx.fillStyle = col;
       this.rr(x + 2, y + 2, this.tw - 4, this.th - 4, 7);
       ctx.fill();
-      // flecha flotante sobre la estacion apuntada
+      // Flecha flotante sobre la estacion apuntada. Encima de la fila 0 ya no
+      // queda cocina, asi que ahi se dibuja debajo del mueble y apuntando hacia
+      // arriba: si no, al apuntar a una arrocera la flecha quedaba escondida
+      // bajo el HUD y no se sabia a que estacion estabas mirando.
       ctx.globalAlpha = 0.95;
-      const ay = y - this.tw * 0.2 - pulso * this.tw * 0.06;
+      const mx = x + this.tw / 2, pico = this.tw * 0.16, sep = this.tw * 0.13;
+      const flota = this.tw * 0.2 + pulso * this.tw * 0.06;
       ctx.fillStyle = col;
       ctx.beginPath();
-      ctx.moveTo(x + this.tw / 2, ay + this.tw * 0.16);
-      ctx.lineTo(x + this.tw / 2 - this.tw * 0.13, ay);
-      ctx.lineTo(x + this.tw / 2 + this.tw * 0.13, ay);
+      if (y - flota < this.sy(0) - this.bh) {
+        const by = this.sy(f.y + 1) + flota * 0.5;
+        ctx.moveTo(mx, by);                     // punta arriba, hacia la estacion
+        ctx.lineTo(mx - sep, by + pico);
+        ctx.lineTo(mx + sep, by + pico);
+      } else {
+        const ay = y - flota;
+        ctx.moveTo(mx, ay + pico);              // punta abajo, hacia la estacion
+        ctx.lineTo(mx - sep, ay);
+        ctx.lineTo(mx + sep, ay);
+      }
       ctx.closePath(); ctx.fill();
       ctx.restore();
     },
@@ -1258,7 +1281,12 @@
         p.life -= dt * (p.small ? 2.2 : 1.1);
         if (p.life <= 0) { this.pops.splice(i, 1); continue; }
         const a = Math.min(1, p.life * 1.6);
-        const px = this.sx(p.x), py = this.sy(p.y) - this.bh - (1 - p.life) * s * 0.7;
+        // El aviso sube mientras se desvanece. Sobre la fila 0 se salia por
+        // arriba y no llegabas a leerlo, asi que se frena en el techo de la
+        // cocina: ahi se queda quieto, pero al menos se ve.
+        const px = this.sx(p.x);
+        const py = Math.max(this.sy(0) - this.bh + s * 0.22,
+                            this.sy(p.y) - this.bh - (1 - p.life) * s * 0.7);
         ctx.globalAlpha = a;
         ctx.font = `800 ${Math.max(10, s * (p.small ? 0.34 : 0.4))}px ui-sans-serif,system-ui`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
