@@ -19,6 +19,16 @@ for (const c of map.cells) {
 }
 ok(unreachable.length === 0, 'todas las casillas interactivas son alcanzables ' + JSON.stringify(unreachable));
 
+// --- 1b. los puntos de aparicion tienen que caer sobre suelo. Parece obvio,
+//         pero al quitar una fila del mapa se quedaron dentro de la fila de
+//         estaciones y los cocineros nacian empotrados: 0 platos en todas las
+//         partidas y ningun error por ninguna parte.
+const spawnsMalos = map.spawns
+  .filter((s) => !floor(Math.floor(s.x), Math.floor(s.y)))
+  .map((s) => s.x + ',' + s.y);
+ok(spawnsMalos.length === 0, 'los spawns caen sobre suelo ' + JSON.stringify(spawnsMalos));
+ok(map.spawns.length >= 3, 'hay un spawn por cada jugador del equipo (' + map.spawns.length + ')');
+
 // --- 2. conectividad del suelo (flood fill desde el spawn)
 const seen = new Set();
 const start = { x: Math.floor(map.spawns[0].x), y: Math.floor(map.spawns[0].y) };

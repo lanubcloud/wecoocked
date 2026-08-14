@@ -28,7 +28,14 @@
     return p[slot % p.length];
   };
 
-  const SQUASH = 0.72;        // alto/ancho de cada casilla (perspectiva 3/4)
+  /*
+   * Alto de casilla respecto al ancho. Cuanto mas bajo, mas perspectiva 3/4,
+   * pero tambien mas dificil apuntar: para coger algo que tienes al lado hay
+   * que estar dentro de una franja vertical de solo (ancho x SQUASH) pixeles,
+   * y en un movil eso se nota. A 0,88 sigue leyendose en perspectiva y la
+   * franja para apuntar crece un 22%.
+   */
+  const SQUASH = 0.88;
   const BLOCK = 0.50;         // altura de los muebles, en anchos de casilla
   // Alto que ocupan los tickets. No se reserva entero: la fila superior de la
   // cocina es borde invisible por su mitad izquierda, justo donde van los

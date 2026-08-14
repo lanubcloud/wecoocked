@@ -47,8 +47,6 @@ const LAYOUT = [
   '#R..............G#',
   '#C..............C#',
   '#P..............S#',
-  '#................#',
-  '#................#',
   '#--BCB--T-T-DWWX-#',
 ];
 
@@ -94,9 +92,9 @@ function buildMap() {
     w, h, cells,
     layout: LAYOUT,
     spawns: [
-      { x: 4.5, y: 8.5 },
-      { x: 8.5, y: 8.5 },
-      { x: 12.5, y: 8.5 },
+      { x: 4.5, y: 7.5 },
+      { x: 8.5, y: 7.5 },
+      { x: 12.5, y: 7.5 },
     ],
     // Decorados puramente visuales (el cliente los pinta encima de los muros)
     deco: [
