@@ -355,28 +355,71 @@
           break;
         }
         case 'shrimp': {
-          const pieza = (px, py, escala, rot) => {
-            ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
-            ctx.fillStyle = '#ff9166';
-            ctx.beginPath();
-            ctx.arc(0, 0, s * 0.2 * escala, Math.PI * 0.15, Math.PI * 1.2);
-            ctx.arc(s * 0.05 * escala, s * 0.02 * escala, s * 0.13 * escala, Math.PI * 1.2, Math.PI * 0.15, true);
-            ctx.closePath(); ctx.fill();
-            ctx.strokeStyle = '#e5673f'; ctx.lineWidth = Math.max(1, s * 0.028);
-            ctx.beginPath(); ctx.arc(0, 0, s * 0.165 * escala, Math.PI * 0.3, Math.PI * 1.05); ctx.stroke();
-            ctx.restore();
-          };
           if (state === 'chopped') {
-            pieza(cx - s * 0.16, cy + s * 0.04, 0.72, 0.5);
-            pieza(cx + s * 0.16, cy - s * 0.04, 0.72, -1.8);
+            // colitas peladas
+            for (let i = 0; i < 2; i++) {
+              ctx.save();
+              ctx.translate(cx + (i - 0.5) * s * 0.3, cy + (i ? -1 : 1) * s * 0.05);
+              ctx.rotate(0.6 - i * 1.4);
+              ctx.fillStyle = '#ff9166';
+              ctx.beginPath();
+              ctx.arc(0, 0, s * 0.15, Math.PI * 0.1, Math.PI * 1.35);
+              ctx.arc(s * 0.04, 0, s * 0.08, Math.PI * 1.35, Math.PI * 0.1, true);
+              ctx.closePath(); ctx.fill();
+              ctx.strokeStyle = '#e5673f'; ctx.lineWidth = Math.max(1, s * 0.025);
+              ctx.beginPath(); ctx.arc(0, 0, s * 0.12, Math.PI * 0.25, Math.PI * 1.15); ctx.stroke();
+              ctx.restore();
+            }
           } else {
-            pieza(cx, cy, 1.15, 0);
-            ctx.fillStyle = '#e5673f';
+            // Camaron entero: cuerpo curvo segmentado, cola en abanico,
+            // patitas, antenas y ojo. Tiene que leerse como camaron en un
+            // icono de 20 px del ticket.
+            ctx.save();
+            ctx.translate(cx, cy + s * 0.04);
+            ctx.rotate(-0.2);
+            // patas
+            ctx.strokeStyle = '#e5673f'; ctx.lineWidth = Math.max(1, s * 0.025);
+            for (let i = 0; i < 4; i++) {
+              const a = Math.PI * (0.35 + i * 0.16);
+              ctx.beginPath();
+              ctx.moveTo(Math.cos(a) * s * 0.19, Math.sin(a) * s * 0.19);
+              ctx.lineTo(Math.cos(a) * s * 0.3, Math.sin(a) * s * 0.3);
+              ctx.stroke();
+            }
+            // cuerpo en C
+            ctx.fillStyle = '#ff8a5c';
             ctx.beginPath();
-            ctx.moveTo(cx + s * 0.16, cy - s * 0.14);
-            ctx.lineTo(cx + s * 0.3, cy - s * 0.24);
-            ctx.lineTo(cx + s * 0.26, cy - s * 0.06);
+            ctx.arc(0, 0, s * 0.23, Math.PI * 0.08, Math.PI * 1.42);
+            ctx.arc(s * 0.02, 0, s * 0.11, Math.PI * 1.42, Math.PI * 0.08, true);
             ctx.closePath(); ctx.fill();
+            // segmentos
+            ctx.strokeStyle = '#e0603c'; ctx.lineWidth = Math.max(1, s * 0.028);
+            for (let i = 0; i < 3; i++) {
+              const a = Math.PI * (0.35 + i * 0.3);
+              ctx.beginPath();
+              ctx.moveTo(Math.cos(a) * s * 0.12, Math.sin(a) * s * 0.12);
+              ctx.lineTo(Math.cos(a) * s * 0.22, Math.sin(a) * s * 0.22);
+              ctx.stroke();
+            }
+            // cola en abanico
+            ctx.fillStyle = '#ff6f45';
+            ctx.beginPath();
+            ctx.moveTo(s * 0.02, -s * 0.2);
+            ctx.lineTo(s * 0.24, -s * 0.34);
+            ctx.lineTo(s * 0.2, -s * 0.14);
+            ctx.lineTo(s * 0.3, -s * 0.06);
+            ctx.lineTo(s * 0.06, -s * 0.09);
+            ctx.closePath(); ctx.fill();
+            // cabeza, ojo y antenas
+            ctx.fillStyle = '#ff8a5c';
+            this.ell(-s * 0.04, s * 0.2, s * 0.1, s * 0.09, '#ff8a5c');
+            this.ell(-s * 0.07, s * 0.19, s * 0.028, s * 0.028, '#2a1a12');
+            ctx.strokeStyle = '#e0603c'; ctx.lineWidth = Math.max(1, s * 0.022);
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.1, s * 0.25); ctx.quadraticCurveTo(-s * 0.3, s * 0.3, -s * 0.34, s * 0.16);
+            ctx.moveTo(-s * 0.1, s * 0.25); ctx.quadraticCurveTo(-s * 0.26, s * 0.4, -s * 0.12, s * 0.42);
+            ctx.stroke();
+            ctx.restore();
           }
           break;
         }
@@ -396,19 +439,45 @@
               ctx.restore();
             }
           } else {
+            // Pescado entero: cuerpo, cola, aletas, branquia y ojo. Antes era
+            // un filete rectangular y en el ticket no se leia como pescado.
             ctx.save();
-            ctx.translate(cx, cy); ctx.rotate(-0.2);
-            ctx.fillStyle = '#fc8161';
-            this.rr(-s * 0.3, -s * 0.15, s * 0.6, s * 0.3, s * 0.1); ctx.fill();
-            ctx.fillStyle = '#d95f43';
-            this.rr(-s * 0.3, s * 0.06, s * 0.6, s * 0.09, s * 0.045); ctx.fill();
-            ctx.strokeStyle = '#ffd9c9'; ctx.lineWidth = Math.max(1, s * 0.035);
-            for (let i = -1; i <= 1; i++) {
-              ctx.beginPath();
-              ctx.moveTo(i * s * 0.16 - s * 0.05, -s * 0.12);
-              ctx.quadraticCurveTo(i * s * 0.16 + s * 0.06, 0, i * s * 0.16 - s * 0.05, s * 0.1);
-              ctx.stroke();
-            }
+            ctx.translate(cx, cy);
+            ctx.rotate(-0.1);
+            // cola
+            ctx.fillStyle = '#e8654a';
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.18, 0);
+            ctx.lineTo(-s * 0.42, -s * 0.18);
+            ctx.lineTo(-s * 0.36, 0);
+            ctx.lineTo(-s * 0.42, s * 0.18);
+            ctx.closePath(); ctx.fill();
+            // aleta dorsal y ventral
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.04, -s * 0.14);
+            ctx.lineTo(s * 0.02, -s * 0.29);
+            ctx.lineTo(s * 0.12, -s * 0.12);
+            ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.02, s * 0.14);
+            ctx.lineTo(s * 0.04, s * 0.26);
+            ctx.lineTo(s * 0.12, s * 0.12);
+            ctx.closePath(); ctx.fill();
+            // cuerpo
+            this.ell(s * 0.02, 0, s * 0.3, s * 0.17, '#fc8161');
+            // vientre mas claro
+            ctx.save();
+            ctx.beginPath(); ctx.ellipse(s * 0.02, 0, s * 0.3, s * 0.17, 0, 0, 7); ctx.clip();
+            this.ell(s * 0.02, s * 0.11, s * 0.28, s * 0.09, '#ffd0bd');
+            ctx.restore();
+            // branquia
+            ctx.strokeStyle = '#e0603c'; ctx.lineWidth = Math.max(1, s * 0.025);
+            ctx.beginPath();
+            ctx.arc(s * 0.16, 0, s * 0.11, -1.1, 1.1);
+            ctx.stroke();
+            // ojo
+            this.ell(s * 0.22, -s * 0.04, s * 0.045, s * 0.045, '#fdf6ef');
+            this.ell(s * 0.23, -s * 0.04, s * 0.026, s * 0.026, '#2a1a12');
             ctx.restore();
           }
           break;
@@ -624,8 +693,12 @@
         return;
       }
       switch (c.type) {
-        case 'wall':
-          b = this.block(c.x, c.y, C.wallFace, C.wallTop, 3);
+        case 'wall': {
+          // Las paredes laterales van en azul, como en el plano de referencia
+          const lateral = c.x === 0 || c.x === this.map.w - 1;
+          b = this.block(c.x, c.y,
+                         lateral ? '#0f4b6b' : C.wallFace,
+                         lateral ? '#1d6f97' : C.wallTop, 3);
           // azulejos del muro: junta horizontal y vertical alternada
           ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 1;
           ctx.beginPath();
@@ -636,6 +709,7 @@
           ctx.fillStyle = 'rgba(255,255,255,.06)';
           ctx.fillRect(b.px + 2, b.py + 2, b.w - 4, 2);
           break;
+        }
 
         case 'counter':
           b = this.block(c.x, c.y, C.woodFace, C.woodTop, 5);

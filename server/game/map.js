@@ -19,17 +19,27 @@
  14x9 (objetos enormes y apretados). Sin pasillos de una sola casilla donde
  dos cocineros pudieran quedarse trabados.
 */
+/*
+ Distribucion segun el plano de referencia:
+   arriba  -> 2 mesas de picar con una encimera en medio, el cartel de neon,
+              y las 4 cocinas con una encimera a cada lado
+   izquierda -> alimentos 1-3 alternados con encimeras
+   derecha -> las 3 ventanillas de entrega arriba y los alimentos 4-5 debajo
+   centro  -> dos islas de 4 encimeras
+   abajo   -> 2 mesas de picar, 2 basuras, platos limpios, 2 lavaplatos y
+              la devolucion de sucios
+*/
 const LAYOUT = [
   '##################',
-  '##BBBCCKKKKCCCCC##',
+  '##BCB#####CKKKKC##',
+  '#C..............V#',
   '#N..............V#',
-  '#R..............V#',
-  '#P..............V#',
-  '#G...CCCCCCCC...C#',
-  '#S..............C#',
-  '#D..............C#',
+  '#C..CCCC..CCCC..V#',
+  '#R..............G#',
+  '#C..............C#',
+  '#P..............S#',
   '#................#',
-  '#..WWX..T.......C#',
+  '#...BCB.T.T.DWWX.#',
   '##################',
 ];
 
@@ -75,15 +85,14 @@ function buildMap() {
     layout: LAYOUT,
     spawns: [
       { x: 4.5, y: 8.5 },
-      { x: 7.5, y: 8.5 },
-      { x: 10.5, y: 8.5 },
+      { x: 8.5, y: 8.5 },
+      { x: 12.5, y: 8.5 },
     ],
     // Decorados puramente visuales (el cliente los pinta encima de los muros)
     deco: [
-      { type: 'sign', text: 'NEGI SUSHI', x: 6.7, y: 0.05, w: 4.6, h: 0.88 },
+      { type: 'sign', text: 'NEGI SUSHI', x: 5.1, y: 0.05, w: 4.8, h: 0.88 },
       { type: 'lantern', x: 0.5, y: 3.5 },
-      { type: 'lantern', x: 17.5, y: 6.5 },
-      { type: 'rug', x: 12.0, y: 2.3, w: 2.4, h: 1.9 },
+      { type: 'lantern', x: 17.5, y: 7.5 },
     ],
   };
 }
