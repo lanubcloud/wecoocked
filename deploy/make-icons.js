@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const OUT = path.join(__dirname, '..', 'public', 'icons');
+const OUT = path.join(__dirname, '..', 'public', 'img');
 
 function crc32(buf) {
   let c, crc = 0xffffffff;

@@ -55,7 +55,7 @@ ok(man.icons.some((i) => i.purpose === 'maskable'),
   const { execSync } = require('child_process');
   let seguidos = '';
   try {
-    seguidos = execSync('git ls-files public/icons', { cwd: ROOT, encoding: 'utf8' });
+    seguidos = execSync('git ls-files public/img', { cwd: ROOT, encoding: 'utf8' });
   } catch (_) { seguidos = null; }
   if (seguidos === null) {
     ok(true, 'sin git disponible: no se comprueba el seguimiento de los iconos');
