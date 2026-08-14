@@ -214,13 +214,16 @@
       // Los tickets pueden bajar hasta la fila 1: la fila 0 solo tiene borde
       // invisible en su mitad izquierda, que es justo donde van.
       r.setProperty('--game-play-top', Math.round(this.sy(1) - this.bh) + 'px');
-      // Ancho seguro: hasta la primera estacion de la fila superior, para que
-      // los pedidos jamas tapen las cocinas por muchos que haya en cola.
+      // Ancho seguro para los pedidos: hasta donde empieza el cartel del
+      // restaurante, que en el plano es su tope. Si no hubiera cartel, hasta
+      // la primera estacion de la fila de arriba, para no tapar las cocinas.
+      const cartel = (this.map.deco || []).find((d) => d.type === 'sign');
       let corte = this.map.w;
       for (let x = 0; x < this.map.w; x++) {
         const c = this.cellAt(x, 0);
         if (c && SOLID.has(c.type) && !MUDAS.has(c.type)) { corte = x; break; }
       }
+      if (cartel) corte = Math.min(corte, cartel.x);
       r.setProperty('--hud-orders-max', Math.max(120, Math.round(this.sx(corte) - this.sx(0) - 10)) + 'px');
       r.setProperty('--game-bottom', Math.round(this.chh - this.sy(this.map.h)) + 'px');
     },

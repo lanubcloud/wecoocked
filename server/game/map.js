@@ -1,53 +1,48 @@
 'use strict';
 
 /*
- Mapa "Negi Sushi" (replica jugable del pantallazo de referencia).
+ Mapa "Negi Sushi", calcado del plano de referencia (17 columnas x 9 filas).
 
- #  muro / decorado         .  suelo
- -  borde invisible: frena al cocinero pero no se dibuja nada. Sirve para
-    cerrar la cocina por arriba y por abajo sin gastar una fila en pintar
-    una pared, y asi queda mas sitio util en pantalla.
- C  encimera                B  tabla de cortar
- K  olla arrocera           D  pila de platos limpios
- W  fregadero               X  devolucion de platos sucios
- T  basura                  V  ventanilla de entrega
- N/R/P/G/S  cajas de nori / arroz / pepino / gamba / salmon
+ #  pared azul               .  suelo
+ -  borde invisible: frena al cocinero pero no se dibuja nada. Va donde el
+    plano no pinta pared: la fila de arriba (que ocupan los pedidos, el cartel
+    y el marcador) y las esquinas de abajo, que es donde caen los joysticks.
+ C  encimera                 B  tabla de cortar
+ K  cocina                   D  pila de platos limpios
+ W  lavaplatos               X  devolucion de platos sucios
+ T  basura                   V  ventanilla de entrega
+ R/G/N/S/P  cajas de arroz / gamba / nori / pescado / pepino
 */
 /*
- Cocina 18x11, con la distribucion del mapa de referencia: tablas de cortar
- arriba a la izquierda, arroceras bajo el cartel de neon, entrega a la
- derecha, cajas de ingredientes en la columna izquierda, isla central
- alargada y fregadero abajo. En un movil apaisado entra entera con casillas
- de ~43 px: punto medio entre la 22x13 original (casillas diminutas) y la
- 14x9 (objetos enormes y apretados). Sin pasillos de una sola casilla donde
- dos cocineros pudieran quedarse trabados.
-*/
-/*
- Distribucion segun el plano de referencia:
-   arriba  -> 2 mesas de picar con una encimera en medio, el cartel de neon,
-              y las 4 cocinas con una encimera a cada lado
-   izquierda -> alimentos 1-3 alternados con encimeras
-   derecha -> las 3 ventanillas de entrega arriba y los alimentos 4-5 debajo
-   centro  -> dos islas de 4 encimeras
-   abajo   -> 2 mesas de picar, 2 basuras, platos limpios, 2 lavaplatos y
-              la devolucion de sucios
-*/
-/*
- La fila 0 lleva las cocinas en el centro y borde invisible a los lados: en
- esas esquinas van los pedidos (izquierda) y el marcador (derecha), tal como
- en el plano. La fila 1 se deja libre para que el HUD pueda asomar sin tapar
- ninguna estacion.
+ Lectura del plano, columna a columna:
+
+  fila 0  los pedidos ocupan de la 0 a la 4, el cartel de la 5 a la 8, y la
+          cocina va corrida a la derecha (encimera, 4 fuegos, encimera) para
+          quedar pegada al marcador, que se queda con las columnas 15-16.
+  izq.    columna 1: arroz, encimera, gamba, encimera, nori. Termina en la
+          fila 5 a proposito: mas abajo esta el joystick y se tapaban.
+  der.    columna 15: las dos ventanillas de entrega arriba y luego pescado,
+          encimera y pepino, tambien parando en la fila 5.
+  centro  dos islas de 4 encimeras en la fila 4.
+  abajo   fila 8, 13 estaciones entre las columnas 2 y 14: las esquinas se
+          dejan libres para los joysticks.
+
+ El plano marca el circulo del centro como platos. Como el juego necesita dos
+ sitios distintos (de donde coges limpios y donde vuelven los sucios), la
+ devolucion se queda en el centro y una de las dos basuras pasa a ser la pila
+ de platos limpios. Es el unico punto donde no se puede copiar el plano tal
+ cual; el resto esta calcado.
 */
 const LAYOUT = [
-  '#-------CKKKKC---#',
-  '#................#',
-  '#C..............V#',
-  '#N..............V#',
-  '#C..CCCC..CCCC..V#',
-  '#R..............G#',
-  '#C..............C#',
-  '#P..............S#',
-  '#--BCB--T-T-DWWX-#',
+  '---------CKKKKC--',
+  '#R.............V#',
+  '#C.............V#',
+  '#G.............S#',
+  '#C..CCCC.CCCC..C#',
+  '#N.............P#',
+  '-...............-',
+  '-...............-',
+  '--BCBCTWXWDCBCB--',
 ];
 
 const LEGEND = {
@@ -91,16 +86,19 @@ function buildMap() {
     name: 'Negi Sushi',
     w, h, cells,
     layout: LAYOUT,
+    // En las filas 6 y 7, que es la franja despejada del plano
     spawns: [
-      { x: 4.5, y: 7.5 },
-      { x: 8.5, y: 7.5 },
-      { x: 12.5, y: 7.5 },
+      { x: 4.5, y: 6.5 },
+      { x: 8.5, y: 6.5 },
+      { x: 12.5, y: 6.5 },
     ],
-    // Decorados puramente visuales (el cliente los pinta encima de los muros)
+    // Decorados puramente visuales (el cliente los pinta encima de los muros).
+    // El cartel ocupa de la columna 5 a la 8: los pedidos se cortan justo
+    // antes para no montarse encima, que es lo que pasaba antes.
     deco: [
-      { type: 'sign', text: 'NEGI SUSHI', x: 2.9, y: 0.06, w: 4.6, h: 0.86 },
+      { type: 'sign', text: 'NEGI SUSHI', x: 4.95, y: 0.06, w: 4.1, h: 0.86 },
       { type: 'lantern', x: 0.5, y: 3.5 },
-      { type: 'lantern', x: 17.5, y: 6.5 },
+      { type: 'lantern', x: 16.5, y: 3.5 },
     ],
   };
 }

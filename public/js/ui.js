@@ -140,10 +140,10 @@
       t.classList.toggle('low', left <= 30);
 
       const other = myTeam === 'A' ? 'B' : 'A';
-      $('#sb-me').textContent = state.scores ? (state.scores[myTeam] | 0) : state.score | 0;
-      $('#sb-op').textContent = state.scores && state.scores[other] != null ? state.scores[other] : '-';
 
-      // platos servidos por cada equipo, para saber en todo momento como vais
+      // Platos servidos por cada equipo. Es el unico numero del marcador: los
+      // puntos iban al lado y solo confundian, porque lo que decide quien gana
+      // son los platos.
       const mine = state.plates ? (state.plates[myTeam] | 0) : (state.delivered | 0);
       const theirs = state.plates && state.plates[other] != null ? state.plates[other] : null;
       $('#pl-me').textContent = mine;
