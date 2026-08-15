@@ -241,7 +241,35 @@
       const TICKETS = 3;                        // los que caben leyendose
       const porAncho = (anchoPedidos - (TICKETS - 1) * 6) / TICKETS - 10;
       const porAlto = this.sy(1) - 16;          // barra de tiempo, relleno y borde
-      r.setProperty('--ticket-dish', Math.max(34, Math.round(Math.min(porAncho, porAlto))) + 'px');
+      const plato = Math.max(34, Math.round(Math.min(porAncho, porAlto)));
+      r.setProperty('--ticket-dish', plato + 'px');
+      this.medidas(anchoPedidos, plato);
+    },
+
+    /**
+     * Chuleta de medidas, solo si la direccion lleva ?medidas=1. Los numeros
+     * de un movil no son los de otro, asi que para decidir un reparto hay que
+     * mirar los del aparato de verdad, no los de una pantalla de referencia.
+     */
+    medidas(anchoPedidos, plato) {
+      if (!/[?&]medidas/.test(location.search)) return;
+      let el = document.getElementById('medidas');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'medidas';
+        el.style.cssText = 'position:fixed;left:0;top:0;z-index:99;background:rgba(0,0,0,.85);' +
+          'color:#8ef;font:11px/1.5 ui-monospace,monospace;padding:6px 9px;white-space:pre;pointer-events:none';
+        document.body.appendChild(el);
+      }
+      const R = (n) => Math.round(n);
+      el.textContent =
+        'PANTALLA   ' + R(this.cw) + ' x ' + R(this.chh) + ' px   (dpr ' + this.dpr + ')\n' +
+        'CASILLA    ' + this.tw.toFixed(1) + ' x ' + this.th.toFixed(1) + '\n' +
+        'COCINA     ' + this.map.w + ' x ' + this.map.h + ' casillas\n' +
+        '  ancho    x ' + R(this.sx(0)) + '..' + R(this.sx(this.map.w)) + '   (margen ' + R(this.sx(0)) + ' a cada lado)\n' +
+        '  alto     y ' + R(this.sy(0)) + '..' + R(this.sy(this.map.h)) + '   (sobran ' + R(this.chh - this.sy(this.map.h)) + ' abajo)\n' +
+        'BANDA HUD  y 0..' + R(this.sy(1)) + '   (la fila 0 va de ' + R(this.sy(0)) + ' a ' + R(this.sy(1)) + ')\n' +
+        'PEDIDOS    ancho ' + anchoPedidos + '   plato ' + plato + ' px';
       r.setProperty('--game-bottom', Math.round(this.chh - this.sy(this.map.h)) + 'px');
     },
 
