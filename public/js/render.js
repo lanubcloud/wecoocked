@@ -270,7 +270,6 @@
         '  alto     y ' + R(this.sy(0)) + '..' + R(this.sy(this.map.h)) + '   (sobran ' + R(this.chh - this.sy(this.map.h)) + ' abajo)\n' +
         'BANDA HUD  y 0..' + R(this.sy(1)) + '   (la fila 0 va de ' + R(this.sy(0)) + ' a ' + R(this.sy(1)) + ')\n' +
         'PEDIDOS    ancho ' + anchoPedidos + '   plato ' + plato + ' px';
-      r.setProperty('--game-bottom', Math.round(this.chh - this.sy(this.map.h)) + 'px');
     },
 
     /**
@@ -1411,9 +1410,11 @@
      * pulgar y ensuciaba la esquina. El limite se saca de la propia pared, asi
      * que si el mapa cambia el comedor se recorta solo.
      */
+    // Se mira el layout, no map.cells: el servidor manda al cliente solo
+    // {id, name, w, h, layout, deco}, sin las celdas ya montadas.
     let finPared = 0;
     for (let y = 0; y < map.h; y++) {
-      if (map.cells[y * map.w].type === 'wall') finPared = y + 1;
+      if (map.layout[y][0] === '#') finPared = y + 1;
     }
     const puestos = [];
     for (let i = 0; i < 3; i++) {
