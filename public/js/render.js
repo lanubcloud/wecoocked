@@ -49,7 +49,13 @@
   // cocina es borde invisible por su mitad izquierda, justo donde van los
   // pedidos, asi que pueden solaparla y solo hay que dejar libre lo que
   // sobresalga por encima de ella.
-  const HUD_H = 64;
+  /*
+   * Alto reservado arriba. A 64 la franja de pedidos se quedaba en 67 px y el
+   * plato del ticket no pasaba de 48: en un movil no se distinguia que te
+   * pedian. A 90 la franja sube a 93 px. Lo paga la fila vacia que se quito
+   * del mapa; con las 9 filas de antes, esto costaba un 8% de casilla.
+   */
+  const HUD_H = 90;
   const PAD = 6;
   /*
    * Fraccion del ancho que asoma del comedor por cada lado. Manda mas de lo
@@ -224,7 +230,18 @@
         if (c && SOLID.has(c.type) && !MUDAS.has(c.type)) { corte = x; break; }
       }
       if (cartel) corte = Math.min(corte, cartel.x);
-      r.setProperty('--hud-orders-max', Math.max(120, Math.round(this.sx(corte) - this.sx(0) - 10)) + 'px');
+      const anchoPedidos = Math.max(120, Math.round(this.sx(corte) - this.sx(0) - 10));
+      r.setProperty('--hud-orders-max', anchoPedidos + 'px');
+      /*
+       * Tamano del plato del ticket. Lo calcula aqui, que es donde estan las
+       * medidas reales, y el CSS solo lo usa: asi se adapta solo a cada movil
+       * en vez de quedarse en un numero fijo que en unas pantallas sobra y en
+       * otras se sale. Manda el hueco mas apretado de los dos, ancho o alto.
+       */
+      const TICKETS = 3;                        // los que caben leyendose
+      const porAncho = (anchoPedidos - (TICKETS - 1) * 6) / TICKETS - 10;
+      const porAlto = this.sy(1) - 16;          // barra de tiempo, relleno y borde
+      r.setProperty('--ticket-dish', Math.max(34, Math.round(Math.min(porAncho, porAlto))) + 'px');
       r.setProperty('--game-bottom', Math.round(this.chh - this.sy(this.map.h)) + 'px');
     },
 
@@ -1360,12 +1377,21 @@
   function buildScenery(map) {
     const mesas = [];
     const cols = ['#c8564b', '#4b7ec8', '#48a06a', '#c8a24a', '#8a5fc0', '#d0793f'];
-    // Solo a los lados: arriba van los pedidos y abajo los controles, y ahi
-    // el comedor solo estorbaria.
-    const puestos = [
-      [-0.8, 1.2], [-0.8, 3.6], [-0.8, 6.0], [-0.8, 8.2],
-      [map.w + 0.8, 1.0], [map.w + 0.8, 3.4], [map.w + 0.8, 5.8], [map.w + 0.8, 8.0],
-    ];
+    /*
+     * El comedor va solo a los lados y solo hasta donde llega la pared azul.
+     * Mas abajo estan los joysticks: alli el comedor asomaba por debajo del
+     * pulgar y ensuciaba la esquina. El limite se saca de la propia pared, asi
+     * que si el mapa cambia el comedor se recorta solo.
+     */
+    let finPared = 0;
+    for (let y = 0; y < map.h; y++) {
+      if (map.cells[y * map.w].type === 'wall') finPared = y + 1;
+    }
+    const puestos = [];
+    for (let i = 0; i < 3; i++) {
+      const t = (i + 0.7) / 3 * finPared;
+      puestos.push([-0.8, t], [map.w + 0.8, t - 0.2]);
+    }
     puestos.forEach((p, i) => {
       const n = 2 + (i % 2);
       mesas.push({
@@ -1374,9 +1400,11 @@
         colores: Array.from({ length: n }, (_, k) => cols[(i + k) % cols.length]),
       });
     });
+    // Los camareros pasean por el mismo tramo que las mesas, sin bajar a las
+    // esquinas de los joysticks
     const camareros = [
-      { puntos: [{ x: -0.45, y: 0.5 }, { x: -0.45, y: map.h - 0.5 }], i: 0, t: 0, vel: 0.14, seed: 0.4 },
-      { puntos: [{ x: map.w + 0.45, y: map.h - 0.5 }, { x: map.w + 0.45, y: 0.5 }], i: 0, t: 0.5, vel: 0.11, seed: 2.1 },
+      { puntos: [{ x: -0.45, y: 0.5 }, { x: -0.45, y: finPared - 0.5 }], i: 0, t: 0, vel: 0.14, seed: 0.4 },
+      { puntos: [{ x: map.w + 0.45, y: finPared - 0.5 }, { x: map.w + 0.45, y: 0.5 }], i: 0, t: 0.5, vel: 0.11, seed: 2.1 },
     ];
     return { mesas, camareros };
   }

@@ -36,10 +36,10 @@ class Engine {
     // sala (igual para ambos bandos), nunca por los jugadores presentes,
     // para que las dos cocinas reciban exactamente la misma carga.
     const size = Math.max(1, Math.min(3, teamSize || players.length || 1));
-    // Tope de 4 en cola: es lo que reserva el plano (cuatro huecos de pedido
-    // entre el borde y el cartel) y lo que cabe leyendose. Con cinco salian
-    // tickets de 47 px y no se distinguia el plato.
-    this.orderMax = Math.min(4, [3, ORDER.maxActive, ORDER.maxActive + 1][size - 1]);
+    // Tope de 3 en cola. El hueco de pedidos mide 238 px de ancho, asi que
+    // repartido entre 4 el plato no pasaba de 50 px por mucho que se subiera
+    // la banda. Entre 3 llega a 68, que es donde se lee en un movil.
+    this.orderMax = Math.min(3, [3, ORDER.maxActive, ORDER.maxActive + 1][size - 1]);
     this.orderGap = [1.15, 1.0, 0.78][size - 1];
     this.time = 0;
     this.score = 0;

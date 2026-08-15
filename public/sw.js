@@ -7,19 +7,19 @@
  * Al desplegar hay que subir CACHE junto con el ?v= de index.html; asi el
  * navegador se trae los archivos nuevos y tira los viejos.
  */
-const CACHE = 'wecoocked-v30';
+const CACHE = 'wecoocked-v31';
 
 const ESTATICOS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './css/style.css?v=30',
-  './js/net.js?v=30',
-  './js/input.js?v=30',
-  './js/voice.js?v=30',
-  './js/render.js?v=30',
-  './js/ui.js?v=30',
-  './js/main.js?v=30',
+  './css/style.css?v=31',
+  './js/net.js?v=31',
+  './js/input.js?v=31',
+  './js/voice.js?v=31',
+  './js/render.js?v=31',
+  './js/ui.js?v=31',
+  './js/main.js?v=31',
   './img/icon-192.png',
   './img/icon-512.png',
 ];

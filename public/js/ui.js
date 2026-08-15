@@ -109,7 +109,7 @@
           el = document.createElement('div');
           el.className = 'ticket';
           // mismo arte que en la cocina, para que el pedido y el cajon coincidan
-          const plato = r ? `<img class="dish" alt="" src="${global.Render.dishIcon(r.items, 72)}">` : '';
+          const plato = r ? `<img class="dish" alt="" src="${global.Render.dishIcon(r.items, 112)}">` : '';
           const ings = r ? r.items.map((t) => {
             const prep = this.ing[t].prep;
             const st = prep === 'cook' ? 'cooked' : prep === 'chop' ? 'chopped' : 'raw';
@@ -148,14 +148,6 @@
       const theirs = state.plates && state.plates[other] != null ? state.plates[other] : null;
       $('#pl-me').textContent = mine;
       $('#pl-op').textContent = theirs == null ? '-' : theirs;
-
-      const diff = $('#sb-diff');
-      if (theirs == null) { diff.textContent = ''; diff.className = 'sb-diff'; }
-      else {
-        const d = mine - theirs;
-        diff.textContent = d > 0 ? `+${d} platos` : d < 0 ? `${d} platos` : 'empate';
-        diff.className = 'sb-diff ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'tie');
-      }
 
       this.renderOrders(state.orders || []);
     },
